@@ -77,18 +77,26 @@ function gfError($aValue, $phpError = false) {
     'output'  => 'Output'
   );
 
+  $externalOutput = function_exists('gfGenContent');
+
   if (is_string($aValue) || is_int($aValue)) {
     $errorContentType = 'text/xml';
     $errorPrefix = $phpError ? $pageHeader['php'] : $pageHeader['default'];
-    $errorMessage = XML_TAG . NEW_LINE . '<error>' . $errorPrefix . ':' . SPACE . $aValue . '</error>';
+
+    if ($externalOutput) {
+      $errorMessage = $aValue;
+    }
+    else {
+      $errorMessage = XML_TAG . NEW_LINE . '<error>' . $errorPrefix . ':' . SPACE . $aValue . '</error>';
+    }
   }
   else {
-    $errorPrefix = $pageHeader['output'];
     $errorContentType = 'application/json';
+    $errorPrefix = $pageHeader['output'];
     $errorMessage = json_encode($aValue, JSON_ENCODE_FLAGS);
   }
 
-  if (function_exists('gfGenContent')) {
+  if ($externalOutput) {
     if ($phpError) {
       gfGenContent($errorPrefix, $errorMessage, null, true, true);
     }

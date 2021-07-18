@@ -98,15 +98,16 @@ switch ($gaRuntime['explodedPath'][0]) {
     $arrayFinalTests = [];
 
     foreach ($arrayTestsGlob as $_value) {
-      $arrayFinalTests[] = str_replace('.php',
-                                       '',
-                                       str_replace('./base/tests/', '', $_value));
+      $arrayFinalTests[] = str_replace('.php', '', str_replace('./base/tests/', '', $_value));
     }
 
     unset($arrayTestsGlob);
 
-    if ($gaRuntime['requestTestCase'] &&
-        in_array($gaRuntime['requestTestCase'], $arrayFinalTests)) {
+    if ($gaRuntime['requestTestCase']) {
+      if (!in_array($gaRuntime['requestTestCase'], $arrayFinalTests)) {
+        gfError('Unknown test case');
+      }
+
       require_once('./base/tests/' . $gaRuntime['requestTestCase'] . '.php');
     }
 
@@ -118,15 +119,15 @@ switch ($gaRuntime['explodedPath'][0]) {
 
     $testsHTML = '<ul>' . $testsHTML . '</ul>';
 
-    gfGenContent('Test Cases - Special Component', $testsHTML);
+    gfGenContent('Test Cases', $testsHTML);
     break;
-  case 'root':
+  case '43893':
     $rootHTML = '<a href="/test/">Test Cases</a></li><li>' .
                 '<a href="/phpinfo/">PHP Info</a></li><li>' .
                 '<a href="/software-state/">Software State</a>';
-    gfGenContent('Special Component', $rootHTML, null, true);
+    gfGenContent('Functions', $rootHTML, null, true);
   default:
-    gfHeader(404);
+    gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN);
 }
 
 // ====================================================================================================================

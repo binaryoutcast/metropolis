@@ -45,7 +45,7 @@ function gfLoadComponent($aComponentPath) {
 
 // Define an array that will hold the current application state
 $gaRuntime = array(
-  'currentScheme'     => gfSuperVar('server', 'SCHEME') ?? gfSuperVar('server', 'HTTPS') ? 'https' : 'http',
+  'currentScheme'     => gfSuperVar('server', 'SCHEME') ?? (gfSuperVar('server', 'HTTPS') ? 'https' : 'http'),
   'phpServerName'     => gfSuperVar('server', 'SERVER_NAME'),
   'phpRequestURI'     => gfSuperVar('server', 'REQUEST_URI'),
   'remoteAddr'        => gfSuperVar('server', 'HTTP_X_FORWARDED_FOR') ?? gfSuperVar('server', 'REMOTE_ADDR'),
