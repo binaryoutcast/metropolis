@@ -87,7 +87,7 @@ function gfError($aValue, $phpError = false) {
       $errorMessage = $aValue;
     }
     else {
-      $errorMessage = XML_TAG . NEW_LINE . '<error>' . $errorPrefix . ':' . SPACE . $aValue . '</error>';
+      $errorMessage = XML_TAG . NEW_LINE . '<error title="' . $errorPrefix . '">' . $aValue . '</error>';
     }
   }
   else {
@@ -222,10 +222,15 @@ function gfHeader($aHeader) {
   );
   
   if (!headers_sent() && array_key_exists($aHeader, $headers)) {   
-    header($headers[$aHeader]);
+    if (DEBUG_MODE) {
+      gfError($headers[$aHeader]);
+    }
+    else {
+      header($headers[$aHeader]);
 
-    if (in_array($aHeader, [404, 501])) {
-      exit();
+      if (in_array($aHeader, [404, 501])) {
+        exit();
+      }
     }
   }
 }
