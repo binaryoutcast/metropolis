@@ -78,12 +78,13 @@ function gfError($aValue, $phpError = false) {
   );
 
   $externalOutput = function_exists('gfGenContent');
+  $isCLI = (php_sapi_name() == "cli");
 
   if (is_string($aValue) || is_int($aValue)) {
     $errorContentType = 'text/xml';
     $errorPrefix = $phpError ? $pageHeader['php'] : $pageHeader['default'];
 
-    if ($externalOutput) {
+    if ($externalOutput || $isCLI) {
       $errorMessage = $aValue;
     }
     else {
@@ -102,6 +103,12 @@ function gfError($aValue, $phpError = false) {
     }
 
     gfGenContent($errorPrefix, $errorMessage);
+  }
+  elseif ($isCLI) {
+    print('========================================' . NEW_LINE .
+          $errorPrefix . NEW_LINE .
+          '========================================' . NEW_LINE .
+          $errorMessage . NEW_LINE);
   }
   else {
     header('Content-Type: ' . $errorContentType, false);
