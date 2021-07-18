@@ -82,6 +82,9 @@ function gfCheckPathCount($aExpectedCount) {
 
 // == | Main | ========================================================================================================
 
+// This is protected...
+gfLocalAuth();
+
 // The Special Component doesn't intend on having more than one level on metropolis
 gfCheckPathCount(1);
 
@@ -121,13 +124,13 @@ switch ($gaRuntime['explodedPath'][0]) {
 
     gfGenContent('Test Cases', $testsHTML);
     break;
-  case '43893':
+  case 'root':
     $rootHTML = '<a href="/test/">Test Cases</a></li><li>' .
                 '<a href="/phpinfo/">PHP Info</a></li><li>' .
                 '<a href="/software-state/">Software State</a>';
     gfGenContent('Functions', $rootHTML, null, true);
   default:
-    gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN);
+    gfHeader(404);
 }
 
 // ====================================================================================================================

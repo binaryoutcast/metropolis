@@ -442,5 +442,47 @@ function gfSubst($aSubsts, $aString, $aRegEx = null) {
   return $string;
 }
 
+/**********************************************************************************************************************
+* ---
+*
+* @param $--   --
+* @returns     --
+***********************************************************************************************************************/
+function gfLocalAuth($aTobinOnly = null) {
+  global $gaRuntime;
+
+  $promptCreds = function() {
+    header('WWW-Authenticate: Basic realm="' . SOFTWARE_NAME . '"');
+    header('HTTP/1.0 401 Unauthorized');   
+    gfError('You need to enter a valid username and password.');
+  };
+
+  $username = gfSuperVar('server', 'PHP_AUTH_USER');
+  $password = gfSuperVar('server', 'PHP_AUTH_PW');
+
+  if (!$username || !$password) {
+    $promptCreds();
+  }
+
+  if ($aTobinOnly && $username != 'mattatobin') {
+    $promptCreds();
+  }
+
+  $configPath = gfBuildPath(ROOT_PATH, DOT . DOT, 'storage', 'config' . JSON_EXTENSION);
+  $userdb = gfReadFile($configPath);
+  
+  if (!$userdb) {
+    gfError('Could not read configuration.');
+  }
+
+  $userdb = $userdb['userdb'];
+  
+  if (!array_key_exists($username, $userdb) || !password_verify($password, $userdb[$username])) {
+    $promptCreds();
+  }
+
+  $gaRuntime['authentication']['username'] = $username;
+}
+
 // ====================================================================================================================
 ?>
