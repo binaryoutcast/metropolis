@@ -85,8 +85,6 @@ $gaRuntime['currentSubDomain'] = gfSuperVar('var', gfGetDomain($gaRuntime['phpSe
 
 // Perform actions based on the domain or optionally the subdomain
 switch ($gaRuntime['currentDomain']) {
-  case 'fossamail.org':
-    gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN . gfBuildPath('projects', 'interlink'));
   case BINOC_DOMAIN:
     switch ($gaRuntime['currentSubDomain']) {
       case 'metropolis':
@@ -108,10 +106,12 @@ switch ($gaRuntime['currentDomain']) {
 
         gfHeader(404);
       case 'repository':
+          $gvProjectsSubdomain = $gaRuntime['currentScheme'] . SCHEME_SUFFIX . 'projects' . DOT . BINOC_DOMAIN;
           if (str_starts_with($gaRuntime['qPath'], '/projects/interlink')) {
-            gfRedirect($gaRuntime['currentScheme'] . SCHEME_SUFFIX .
-                       'projects' . BINOC_DOMAIN .
-                       str_replace(HTTPS_SCHEME . BINOC_DOMAIN . SLASH . 'projects', '', $gaRuntime['qPath']));
+            gfRedirect($gvProjectsSubdomain . str_replace('/projects', '', $gaRuntime['qPath']));
+          }
+          elseif (str_starts_with($gaRuntime['qPath'], '/dicts')) {
+            gfRedirect($gvProjectsSubdomain . $gaRuntime['qPath']);
           }
           else {
             gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN);
@@ -121,6 +121,8 @@ switch ($gaRuntime['currentDomain']) {
       case 'git': gfRedirect('https://repo.palemoon.org/binaryoutcast' . $gaRuntime['qPath']);
       case 'interlink-addons': gfRedirect('https://addons.binaryoutcast.com/interlink' . $gaRuntime['qPath']);
     }
+  case 'fossamail.org':
+    gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN . gfBuildPath('projects', 'interlink'));
   default:
     gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN);
 }
