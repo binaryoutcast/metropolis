@@ -1,33 +1,86 @@
 <?php
-// == | Primitives | ==================================================================================================
+// == | Setup | =======================================================================================================
+
+// Check if the basic defines have been defined in the including script
+foreach (['ROOT_PATH', 'DEBUG_MODE',  'SOFTWARE_NAME', 'SOFTWARE_VERSION'] as $_value) {
+  if (!defined($_value)) {
+    die('Binary Outcast Metropolis Fundamentals: ' . $_value . ' must be defined before including this script.');
+  }
+}
+
+// Do not allow this to be included more than once...
+if (defined('BINOC_FUNCTIONS')) {
+  die('Binary Outcast Metropolis Fundamentals: You may not include this more than once.');
+}
+
+// Define that this is a thing.
+define('BINOC_FUNCTIONS', 1);
+
+// ====================================================================================================================
+
+// == | Global Constants | ======================================================================================
+
+const PHP_ERROR_CODES       = array(
+  E_ERROR               => 'Fatal Error',
+  E_WARNING             => 'Warning',
+  E_PARSE               => 'Parse',
+  E_NOTICE              => 'Notice',
+  E_CORE_ERROR          => 'Fatal Error (Core)',
+  E_CORE_WARNING        => 'Warning (Core)',
+  E_COMPILE_ERROR       => 'Fatal Error (Compile)',
+  E_COMPILE_WARNING     => 'Warning (Compile)',
+  E_USER_ERROR          => 'Fatal Error (User Generated)',
+  E_USER_WARNING        => 'Warning (User Generated)',
+  E_USER_NOTICE         => 'Notice (User Generated)',
+  E_STRICT              => 'Strict',
+  E_RECOVERABLE_ERROR   => 'Fatal Error (Recoverable)',
+  E_DEPRECATED          => 'Deprecated',
+  E_USER_DEPRECATED     => 'Deprecated (User Generated)',
+  E_ALL                 => 'All'
+);
+
+// --------------------------------------------------------------------------------------------------------------------
 
 const NEW_LINE              = "\n";
 const EMPTY_STRING          = "";
 const EMPTY_ARRAY           = [];
 const SPACE                 = " ";
-const DOT                   = ".";
-const SLASH                 = "/";
-const DASH                  = "-";
 const WILDCARD              = "*";
+const SLASH                 = "/";
+const DOT                   = ".";
+const DASH                  = "-";
+const UNDERSCORE            = "_";
+const DOTDOT                = DOT . DOT;
 
+// --------------------------------------------------------------------------------------------------------------------
+
+const DASH_SEPARATOR        = SPACE . DASH . SPACE;
 const SCHEME_SUFFIX         = "://";
 
 const PHP_EXTENSION         = DOT . 'php';
 const INI_EXTENSION         = DOT . 'ini';
 const XML_EXTENSION         = DOT . 'xml';
+const TEMP_EXTENSION        = DOT . 'temp';
+const XPINSTALL_EXTENSION   = DOT . 'xpi';
+const RDF_EXTENSION         = DOT . 'rdf';
 const JSON_EXTENSION        = DOT . 'json';
 
 const JSON_ENCODE_FLAGS     = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 const FILE_WRITE_FLAGS      = "w+";
+
 const XML_TAG               = '<?xml version="1.0" encoding="utf-8" ?>';
+
+const REGEX_GET_FILTER      = "/[^-a-zA-Z0-9_\-\/\{\}\@\.\%\s\,]/";
+const REGEX_GUID            = '/^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$/i';
+const REGEX_HOST            = '/[a-z0-9-\._]+\@[a-z0-9-\._]+/i';
+
 
 // ====================================================================================================================
 
 // == | Global Functions | ============================================================================================
 
 /**********************************************************************************************************************
-* Polyfills for missing/proposed functions
-* str_starts_with, str_ends_with, str_contains
+* Polyfills for str_starts_with, str_ends_with, str_contains
 *
 * @param $haystack  string
 * @param $needle    substring
@@ -37,6 +90,11 @@ if (!function_exists('str_starts_with')) {
   function str_starts_with($haystack, $needle) {
      $length = strlen($needle);
      return (substr($haystack, 0, $length) === $needle);
+  }
+
+  // Compatibility with previously used polyfill function name
+  function startsWith(...$aArgs) {
+    return str_starts_with(...$aArgs);
   }
 }
 
@@ -51,6 +109,11 @@ if (!function_exists('str_ends_with')) {
 
     return (substr($haystack, -$length) === $needle);
   }
+
+  // Compatibility with previously used polyfill function name
+  function endsWith(...$aArgs) {
+    return str_ends_with(...$aArgs);
+  }
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -64,10 +127,20 @@ if (!function_exists('str_contains')) {
       return false;
     }
   }
+
+  // Compatibility with previously used polyfill function name
+  function contains(...$aArgs) {
+    return str_contains(...$aArgs);
+  }
 }
 
 /**********************************************************************************************************************
 * Error function that will display data (Error Message)
+*
+* This version of the function can emit the error as xml or text depending on the environment.
+* It also can use gfGenContent() if defined and has the same signature.
+* It also has its legacy ability for generic output if the error message is not a string as formatted json
+* regardless of the environment.
 **********************************************************************************************************************/
 function gfError($aValue, $phpError = false) { 
   $pageHeader = array(
@@ -81,38 +154,38 @@ function gfError($aValue, $phpError = false) {
   $isCLI = (php_sapi_name() == "cli");
 
   if (is_string($aValue) || is_int($aValue)) {
-    $errorContentType = 'text/xml';
-    $errorPrefix = $phpError ? $pageHeader['php'] : $pageHeader['default'];
+    $eContentType = 'text/xml';
+    $ePrefix = $phpError ? $pageHeader['php'] : $pageHeader['default'];
 
     if ($externalOutput || $isCLI) {
-      $errorMessage = $aValue;
+      $eMessage = $aValue;
     }
     else {
-      $errorMessage = XML_TAG . NEW_LINE . '<error title="' . $errorPrefix . '">' . $aValue . '</error>';
+      $eMessage = XML_TAG . NEW_LINE . '<error title="' . $ePrefix . '">' . $aValue . '</error>';
     }
   }
   else {
-    $errorContentType = 'application/json';
-    $errorPrefix = $pageHeader['output'];
-    $errorMessage = json_encode($aValue, JSON_ENCODE_FLAGS);
+    $eContentType = 'application/json';
+    $ePrefix = $pageHeader['output'];
+    $eMessage = json_encode($aValue, JSON_ENCODE_FLAGS);
   }
 
   if ($externalOutput) {
     if ($phpError) {
-      gfGenContent($errorPrefix, $errorMessage, null, true, true);
+      gfGenContent($ePrefix, $eMessage, null, true, true);
     }
 
-    gfGenContent($errorPrefix, $errorMessage);
+    gfGenContent($ePrefix, $eMessage);
   }
   elseif ($isCLI) {
     print('========================================' . NEW_LINE .
-          $errorPrefix . NEW_LINE .
+          $ePrefix . NEW_LINE .
           '========================================' . NEW_LINE .
-          $errorMessage . NEW_LINE);
+          $eMessage . NEW_LINE);
   }
   else {
-    header('Content-Type: ' . $errorContentType, false);
-    print($errorMessage);
+    header('Content-Type: ' . $eContentType, false);
+    print($eMessage);
   }
 
   // We're done here.
@@ -122,97 +195,89 @@ function gfError($aValue, $phpError = false) {
 /**********************************************************************************************************************
 * PHP Error Handler
 **********************************************************************************************************************/
-function gfErrorHandler($errno, $errstr, $errfile, $errline) {
-  $errorCodes = array(
-    E_ERROR               => 'Fatal Error',
-    E_WARNING             => 'Warning',
-    E_PARSE               => 'Parse',
-    E_NOTICE              => 'Notice',
-    E_CORE_ERROR          => 'Fatal Error (Core)',
-    E_CORE_WARNING        => 'Warning (Core)',
-    E_COMPILE_ERROR       => 'Fatal Error (Compile)',
-    E_COMPILE_WARNING     => 'Warning (Compile)',
-    E_USER_ERROR          => 'Fatal Error (User Generated)',
-    E_USER_WARNING        => 'Warning (User Generated)',
-    E_USER_NOTICE         => 'Notice (User Generated)',
-    E_STRICT              => 'Strict',
-    E_RECOVERABLE_ERROR   => 'Fatal Error (Recoverable)',
-    E_DEPRECATED          => 'Deprecated',
-    E_USER_DEPRECATED     => 'Deprecated (User Generated)',
-    E_ALL                 => 'All',
-  );
+function gfErrorHandler($eCode, $eString, $eFile, $eLine) {
+  $eType = PHP_ERROR_CODES[$eCode] ?? $eCode;
+  $eMessage = $eType . ': ' . $eString . SPACE . 'in' . SPACE .
+                  str_replace(ROOT_PATH, '', $eFile) . SPACE . 'on line' . SPACE . $eLine;
 
-  $errorType = $errorCodes[$errno] ?? $errno;
-  $errorMessage = $errorType . ': ' . $errstr . SPACE . 'in' . SPACE .
-                  str_replace(ROOT_PATH, '', $errfile) . SPACE . 'on line' . SPACE . $errline;
-
-  if (!(error_reporting() & $errno)) {
+  if (!(error_reporting() & $eCode)) {
     // Don't do jack shit because the developers of PHP think users shouldn't be trusted.
     return;
   }
 
-  gfError($errorMessage, true);
+  gfError($eMessage, true);
 }
 
+// Set error handler fairly early...
 set_error_handler("gfErrorHandler");
 
 /**********************************************************************************************************************
 * Unified Var Checking
 *
-* @param $_type           Type of var to check
-* @param $_value          GET/SERVER/EXISTING Normal Var
-* @param $_allowFalsy     Optional - Allow falsey returns (really only works with case var)
+* @param $aVarType        Type of var to check
+* @param $aVarValue       GET/SERVER/EXISTING Normal Var
+* @param $aFalsy          Optional - Allow falsey returns on var/direct
 * @returns                Value or null
 **********************************************************************************************************************/
-function gfSuperVar($_type, $_value, $_allowFalsy = null) {
-  $errorPrefix = __FUNCTION__ . SPACE . DASH . SPACE;
-  $finalValue = null;
+function gfSuperVar($aVarType, $aVarValue, $aFalsy = null) {
+  // Set up the Error Message Prefix
+  $ePrefix = __FUNCTION__ . DASH_SEPARATOR;
+  $rv = null;
 
-  switch ($_type) {
-    case 'get':
-      $finalValue = $_GET[$_value] ?? null;
+  // Turn the variable type into all caps prefixed with an underscore
+  $varType = UNDERSCORE . strtoupper($aVarType);
 
-      if ($finalValue) {
-        $finalValue = preg_replace('/[^-a-zA-Z0-9_\-\/\{\}\@\.\%\s\,]/', '', $_GET[$_value]);
+  // General variable absolute null check unless falsy is allowed
+  if ($varType == "_VAR" || $varType == "_DIRECT"){
+    $rv = $aVarValue ?? null;
+
+    if ($rv && !$aFalsy) {
+      if (empty($rv) || $rv === 'none' || $rv === EMPTY_STRING) {
+        return null;
       }
+    }
 
-      break;
-    case 'post':
-      $finalValue = $_POST[$_value] ?? null;
-      break;
-    case 'server':
-      $finalValue = $_SERVER[$_value] ?? null;
-      break;
-    case 'files':
-      $finalValue = $_FILES[$_value] ?? null;
-      if ($finalValue) {
-        if (!in_array($finalValue['error'], [UPLOAD_ERR_OK, UPLOAD_ERR_NO_FILE])) {
-          gfError($errorPrefix . 'Upload of ' . $_value . ' failed with error code: ' . $finalValue['error']);
-        }
+    return $rv;
+  }
 
-        if ($finalValue['error'] == UPLOAD_ERR_NO_FILE) {
-          $finalValue = null;
-        }
-        else {
-          $finalValue['type'] = mime_content_type($finalValue['tmp_name']);
-        }
-      }
-      break;
-    case 'cookie':
-      $finalValue = $_COOKIE[$_value] ?? null;
-      break;
-    case 'var':
-      $finalValue = $_value ?? null;
+  // This handles the superglobals
+  switch($varType) {
+    case '_SERVER':
+    case '_GET':
+    case '_FILES':
+    case '_POST':
+    case '_COOKIE':
+    case '_SESSION':
+      $rv = $GLOBALS[$varType][$aVarValue] ?? null;
       break;
     default:
-      gfError($errorPrefix . 'Incorrect var check');
+      // We don't know WHAT was requested but it is obviously wrong...
+      gfError($ePrefix . 'Incorrect Var Check');
+  }
+  
+  // We always pass $_GET values through a general regular expression
+  // This allows only a-z A-Z 0-9 - / { } @ % whitespace and ,
+  if ($rv && $varType == "_GET") {
+    $rv = preg_replace(REGEX_GET_FILTER, EMPTY_STRING, $rv);
   }
 
-  if (!$_allowFalsy && (empty($finalValue) || $finalValue === 'none' || $finalValue === '')) {
-    return null;
-  }
+  // Files need special handling.. In principle we hard fail if it is anything other than
+  // OK or NO FILE
+  if ($rv && $varType == "_FILES") {
+    if (!in_array($rv['error'], [UPLOAD_ERR_OK, UPLOAD_ERR_NO_FILE])) {
+      gfError($ePrefix . 'Upload of ' . $aVarValue . ' failed with error code: ' . $rv['error']);
+    }
 
-  return $finalValue;
+    // No file is handled as merely being null
+    if ($rv['error'] == UPLOAD_ERR_NO_FILE) {
+      return null;
+    }
+
+    // Cursory check the actual mime-type and replace whatever the web client sent
+    $rv['type'] = mime_content_type($rv['tmp_name']);
+  }
+  
+  return $rv;
 }
 
 /**********************************************************************************************************************
@@ -256,21 +321,21 @@ function gfRedirect($aURL) {
 }
 
 /**********************************************************************************************************************
-* ---
+* Explodes a string to an array without empty elements if it starts or ends with the seperator
 *
-* @param $--   --
-* @param $--   --
-* @returns     --
+* @param $aSeparator   Separator used to split the string
+* @param $aString      String to be exploded
+* @returns             Array of string parts
 ***********************************************************************************************************************/
 function gfExplodeString($aSeparator, $aString) {
-  $errorPrefix = __FUNCTION__ . SPACE . DASH . SPACE;
+  $ePrefix = __FUNCTION__ . SPACE . DASH . SPACE;
 
   if (!is_string($aString)) {
-    gfError($errorPrefix . 'Specified string is not a string type');
+    gfError($ePrefix . 'Specified string is not a string type');
   }
 
   if (!str_contains($aString, $aSeparator)) {
-    gfError($errorPrefix . 'String does not contain the seperator');
+    gfError($ePrefix . 'String does not contain the seperator');
   }
 
   $explodedString = array_values(array_filter(explode($aSeparator, $aString), 'strlen'));
@@ -281,9 +346,9 @@ function gfExplodeString($aSeparator, $aString) {
 /**********************************************************************************************************************
 * ---
 *
-* @param $--   --
-* @param $--   --
-* @returns     --
+* @param $aHost       Hostname
+* @param $aReturnSub  Should return subdmain
+* @returns            domain or subdomain
 ***********************************************************************************************************************/
 function gfGetDomain($aHost, $aReturnSub = null) {
   $host = gfExplodeString(DOT, $aHost);
@@ -331,14 +396,86 @@ function gfBuildPath(...$aPathParts) {
 }
 
 /**********************************************************************************************************************
-* ---
+* Strips the constant ROOT_PATH from a string
 *
-* @param $--   --
-* @returns     --
+* @param $aPath   Path to be stripped
+* @returns        Stripped path
 ***********************************************************************************************************************/
 function gfStripRootPath($aPath) {
   return str_replace(ROOT_PATH, EMPTY_STRING, $aPath);
 }
+
+/**********************************************************************************************************************
+* Includes a module
+*
+* @param $aModules    List of modules
+**********************************************************************************************************************/
+function gfImportModules(...$aModules) {
+  if (!defined('MODULES')) {
+    funcError('MODULES is not defined');
+  }
+
+  foreach ($aModules as $_value) {
+    if (!array_key_exists($_value, MODULES)) {
+      gfError('Unable to import unknown module ' . $_value);
+    }
+
+    $className = 'class' . ucfirst($_value);
+    $moduleName = 'gm' . ucfirst($_value);
+
+    // Special case for nsIVersionComparator
+    if ($_value == 'vc') {
+      $className = 'ToolkitVersionComparator';
+      $moduleName = 'gm' . strtoupper($_value);
+    }
+   
+    if (array_key_exists($moduleName, $GLOBALS)) {
+      gfError('Module ' . $_value . ' has already been imported');
+    }
+
+    require(MODULES[$_value]);
+    $GLOBALS[$moduleName] = new $className();
+  }
+}
+
+/**********************************************************************************************************************
+* Check if a module is in $arrayIncludes
+*
+* @param $aClass      Class name
+* @param $aIncludes   List of includes
+**********************************************************************************************************************/
+function gfEnsureModules($aClass, ...$aIncludes) { 
+  if (!$aClass) {
+    $aClass = "Global";
+  }
+
+  if (empty($aIncludes)) {
+    gfError('You did not specify any modules');
+  }
+  
+  $unloadedModules = EMPTY_ARRAY;
+  $indicative = ' is ';
+  foreach ($aIncludes as $_value) {
+    $moduleName = 'gm' . ucfirst($_value);
+
+    if ($_value == 'vc') {
+      $moduleName = 'gm' . strtoupper($_value);
+    }
+
+    if (!array_key_exists($moduleName, $GLOBALS)) {
+      $unloadedModules[] = $_value;
+    }
+  }
+
+  if (count($unloadedModules) > 0) {
+    if (count($unloadedModules) > 1) {
+      $indicative = ' are ';
+    }
+
+    gfError(implode(', ', $unloadedModules) . $indicative . 'required for ' . $aClass);
+  }
+}
+
 
 /**********************************************************************************************************************
 * Read file (decode json if the file has that extension or parse install.rdf if that is the target file)
@@ -350,8 +487,19 @@ function gfStripRootPath($aPath) {
 function gfReadFile($aFile) {
   $file = @file_get_contents($aFile);
 
+  // Automagically decode json
   if (str_ends_with($aFile, JSON_EXTENSION)) {
     $file = json_decode($file, true);
+  }
+
+  // If it is a mozilla install manifest and the module has been included then parse it
+  if (str_ends_with($aFile, 'install.rdf') && array_key_exists('gmMozillaRDF', $GLOBALS)) {
+    global $gmMozillaRDF;
+    $file = $gmMozillaRDF->parseInstallManifest($file);
+
+    if (is_string($file)) {
+      gfError('RDF Parsing Error: ' . $file);
+    }
   }
 
   return gfSuperVar('var', $file);
@@ -455,32 +603,30 @@ function gfSubst($aSubsts, $aString, $aRegEx = null) {
 }
 
 /**********************************************************************************************************************
-* ---
+* Request HTTP Basic Authentication
+***********************************************************************************************************************/
+function gfBasicAuthPrompt() {
+  header('WWW-Authenticate: Basic realm="' . SOFTWARE_NAME . '"');
+  header('HTTP/1.0 401 Unauthorized');   
+  gfError('You need to enter a valid username and password.');
+}
+
+/**********************************************************************************************************************
+* Local Authentication from a pre-defined json file with user and hashed passwords
 *
-* @param $--   --
-* @returns     --
+* @param $aTobinOnly   Only Tobin's username is valid
 ***********************************************************************************************************************/
 function gfLocalAuth($aTobinOnly = null) {
   global $gaRuntime;
 
-  $promptCreds = function() {
-    header('WWW-Authenticate: Basic realm="' . SOFTWARE_NAME . '"');
-    header('HTTP/1.0 401 Unauthorized');   
-    gfError('You need to enter a valid username and password.');
-  };
-
   $username = gfSuperVar('server', 'PHP_AUTH_USER');
   $password = gfSuperVar('server', 'PHP_AUTH_PW');
 
-  if (!$username || !$password) {
-    $promptCreds();
+  if ((!$username || !$password) || ($aTobinOnly && $username != 'mattatobin')) {
+    gfBasicAuthPrompt();
   }
 
-  if ($aTobinOnly && $username != 'mattatobin') {
-    $promptCreds();
-  }
-
-  $configPath = gfBuildPath(ROOT_PATH, DOT . DOT, 'storage', 'config' . JSON_EXTENSION);
+  $configPath = gfBuildPath(ROOT_PATH, DOTDOT, 'storage', 'config' . JSON_EXTENSION);
   $userdb = gfReadFile($configPath);
   
   if (!$userdb) {
@@ -490,7 +636,7 @@ function gfLocalAuth($aTobinOnly = null) {
   $userdb = $userdb['userdb'];
   
   if (!array_key_exists($username, $userdb) || !password_verify($password, $userdb[$username])) {
-    $promptCreds();
+    gfBasicAuthPrompt();
   }
 
   $gaRuntime['authentication']['username'] = $username;

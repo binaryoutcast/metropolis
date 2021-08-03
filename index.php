@@ -14,13 +14,15 @@ define('ROOT_PATH', $_SERVER['DOCUMENT_ROOT']);
 // Debug flag
 define('DEBUG_MODE', $_GET['debug'] ?? null);
 
+// Software Name and Version
+const SOFTWARE_NAME       = 'Metropolis';
+const SOFTWARE_VERSION    = '1.0.0a1';
+
 // Load fundamental constants and global functions
 // This is so we can arbitrarily reuse them in adhoc situations which is why they are not following
 // the globalConstants/globalFunctions scheme used by other BinOC Applications.
-require_once('./base/fundamentals.php');
+require_once('./fundamentals.php');
 
-const SOFTWARE_NAME       = 'Metropolis';
-const SOFTWARE_VERSION    = '1.0.0a1';
 
 const HTTPS_SCHEME          = 'https' . SCHEME_SUFFIX;
 const BINOC_DOMAIN          = 'binaryoutcast.com';
