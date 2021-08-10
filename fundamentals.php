@@ -21,22 +21,32 @@ define('BINOC_FUNCTIONS', 1);
 // == | Global Constants | ======================================================================================
 
 const PHP_ERROR_CODES       = array(
-  E_ERROR               => 'Fatal Error',
-  E_WARNING             => 'Warning',
-  E_PARSE               => 'Parse',
-  E_NOTICE              => 'Notice',
-  E_CORE_ERROR          => 'Fatal Error (Core)',
-  E_CORE_WARNING        => 'Warning (Core)',
-  E_COMPILE_ERROR       => 'Fatal Error (Compile)',
-  E_COMPILE_WARNING     => 'Warning (Compile)',
-  E_USER_ERROR          => 'Fatal Error (User Generated)',
-  E_USER_WARNING        => 'Warning (User Generated)',
-  E_USER_NOTICE         => 'Notice (User Generated)',
-  E_STRICT              => 'Strict',
-  E_RECOVERABLE_ERROR   => 'Fatal Error (Recoverable)',
-  E_DEPRECATED          => 'Deprecated',
-  E_USER_DEPRECATED     => 'Deprecated (User Generated)',
-  E_ALL                 => 'All'
+  E_ERROR                   => 'Fatal Error',
+  E_WARNING                 => 'Warning',
+  E_PARSE                   => 'Parse',
+  E_NOTICE                  => 'Notice',
+  E_CORE_ERROR              => 'Fatal Error (Core)',
+  E_CORE_WARNING            => 'Warning (Core)',
+  E_COMPILE_ERROR           => 'Fatal Error (Compile)',
+  E_COMPILE_WARNING         => 'Warning (Compile)',
+  E_USER_ERROR              => 'Fatal Error (User Generated)',
+  E_USER_WARNING            => 'Warning (User Generated)',
+  E_USER_NOTICE             => 'Notice (User Generated)',
+  E_STRICT                  => 'Strict',
+  E_RECOVERABLE_ERROR       => 'Fatal Error (Recoverable)',
+  E_DEPRECATED              => 'Deprecated',
+  E_USER_DEPRECATED         => 'Deprecated (User Generated)',
+  E_ALL                     => 'All'
+);
+
+const HTTP_HEADERS          = array(
+  404                       => 'HTTP/1.1 404 Not Found',
+  501                       => 'HTTP/1.1 501 Not Implemented',
+  'html'                    => 'Content-Type: text/html',
+  'text'                    => 'Content-Type: text/plain',
+  'xml'                     => 'Content-Type: text/xml',
+  'json'                    => 'Content-Type: application/json',
+  'css'                     => 'Content-Type: text/css',
 );
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -60,20 +70,33 @@ const SCHEME_SUFFIX         = "://";
 const PHP_EXTENSION         = DOT . 'php';
 const INI_EXTENSION         = DOT . 'ini';
 const XML_EXTENSION         = DOT . 'xml';
+const JSON_EXTENSION        = DOT . 'json';
 const TEMP_EXTENSION        = DOT . 'temp';
+
+// --------------------------------------------------------------------------------------------------------------------
+
+const XML_TAG               = '<?xml version="1.0" encoding="utf-8" ?>';
+
+// --------------------------------------------------------------------------------------------------------------------
+
 const XPINSTALL_EXTENSION   = DOT . 'xpi';
 const RDF_EXTENSION         = DOT . 'rdf';
-const JSON_EXTENSION        = DOT . 'json';
+
+// --------------------------------------------------------------------------------------------------------------------
+
+const RDF_INSTALL_MANIFEST  = 'install' . DOT . RDF_EXTENSION;
+const JSON_INSTALL_MANIFEST = 'install' . DOT . JSON_EXTENSION;
+
+// --------------------------------------------------------------------------------------------------------------------
 
 const JSON_ENCODE_FLAGS     = JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE;
 const FILE_WRITE_FLAGS      = "w+";
 
-const XML_TAG               = '<?xml version="1.0" encoding="utf-8" ?>';
+// --------------------------------------------------------------------------------------------------------------------
 
 const REGEX_GET_FILTER      = "/[^-a-zA-Z0-9_\-\/\{\}\@\.\%\s\,]/";
-const REGEX_GUID            = '/^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$/i';
-const REGEX_HOST            = '/[a-z0-9-\._]+\@[a-z0-9-\._]+/i';
-
+const REGEX_GUID            = "/^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$/i";
+const REGEX_HOST            = "/[a-z0-9-\._]+\@[a-z0-9-\._]+/i";
 
 // ====================================================================================================================
 
@@ -141,6 +164,11 @@ if (!function_exists('str_contains')) {
 * It also can use gfGenContent() if defined and has the same signature.
 * It also has its legacy ability for generic output if the error message is not a string as formatted json
 * regardless of the environment.
+*
+* @dep gfGenContent() - conditional
+* @dep NEW_LINE
+* @dep XML_TAG
+* @dep JSON_ENCODE_FLAGS
 **********************************************************************************************************************/
 function gfError($aValue, $phpError = false) { 
   $pageHeader = array(
@@ -194,6 +222,10 @@ function gfError($aValue, $phpError = false) {
 
 /**********************************************************************************************************************
 * PHP Error Handler
+*
+* @dep SPACE
+* @dep PHP_ERROR_CODES
+* @dep gfError()
 **********************************************************************************************************************/
 function gfErrorHandler($eCode, $eString, $eFile, $eLine) {
   $eType = PHP_ERROR_CODES[$eCode] ?? $eCode;
@@ -214,6 +246,11 @@ set_error_handler("gfErrorHandler");
 /**********************************************************************************************************************
 * Unified Var Checking
 *
+* @dep DASH_SEPARATOR
+* @dep UNDERSCORE
+* @dep EMPTY_STRING
+* @dep REGEX_GET_FILTER
+* @dep gfError()
 * @param $aVarType        Type of var to check
 * @param $aVarValue       GET/SERVER/EXISTING Normal Var
 * @param $aFalsy          Optional - Allow falsey returns on var/direct
@@ -283,22 +320,18 @@ function gfSuperVar($aVarType, $aVarValue, $aFalsy = null) {
 /**********************************************************************************************************************
 * Sends HTTP Headers to client using a short name
 *
+* @dep HTTP_HEADERS
+* @dep DEBUG_MODE
+* @dep gfError()
 * @param $aHeader    Short name of header
 **********************************************************************************************************************/
-function gfHeader($aHeader) {
-  $headers = array(
-    404             => 'HTTP/1.1 404 Not Found',
-    501             => 'HTTP/1.1 501 Not Implemented',
-    'text'          => 'Content-Type: text/plain',
-    'xml'           => 'Content-Type: text/xml',
-  );
-  
-  if (!headers_sent() && array_key_exists($aHeader, $headers)) {   
+function gfHeader($aHeader) { 
+  if (!headers_sent() && array_key_exists($aHeader, HTTP_HEADERS)) {   
     if (DEBUG_MODE) {
-      gfError($headers[$aHeader]);
+      gfError(HTTP_HEADERS[$aHeader]);
     }
     else {
-      header($headers[$aHeader]);
+      header(HTTP_HEADERS[$aHeader]);
 
       if (in_array($aHeader, [404, 501])) {
         exit();
@@ -323,12 +356,14 @@ function gfRedirect($aURL) {
 /**********************************************************************************************************************
 * Explodes a string to an array without empty elements if it starts or ends with the seperator
 *
+* @dep DASH_SEPARATOR
+* @dep gfError()
 * @param $aSeparator   Separator used to split the string
 * @param $aString      String to be exploded
 * @returns             Array of string parts
 ***********************************************************************************************************************/
 function gfExplodeString($aSeparator, $aString) {
-  $ePrefix = __FUNCTION__ . SPACE . DASH . SPACE;
+  $ePrefix = __FUNCTION__ . DASH_SEPARATOR;
 
   if (!is_string($aString)) {
     gfError($ePrefix . 'Specified string is not a string type');
@@ -344,22 +379,10 @@ function gfExplodeString($aSeparator, $aString) {
 }
 
 /**********************************************************************************************************************
-* ---
-*
-* @param $aHost       Hostname
-* @param $aReturnSub  Should return subdmain
-* @returns            domain or subdomain
-***********************************************************************************************************************/
-function gfGetDomain($aHost, $aReturnSub = null) {
-  $host = gfExplodeString(DOT, $aHost);
-  $domainSlice = $aReturnSub ? array_slice($host, 0, -2) : array_slice($host, -2, 2);
-  $domainString = implode(DOT, $domainSlice);
-  return $domainString;
-}
-
-/**********************************************************************************************************************
 * Splits a path into an indexed array of parts
 *
+* @dep SLASH
+* @dep gfExplodeString()
 * @param $aPath   URI Path
 * @returns        array of uri parts in order
 ***********************************************************************************************************************/
@@ -374,6 +397,9 @@ function gfExplodePath($aPath) {
 /**********************************************************************************************************************
 * Builds a path from a list of arguments
 *
+* @dep ROOT_PATH
+* @dep SLASH
+* @dep DOT
 * @param        ...$aPathParts  Path Parts
 * @returns                      Path string
 ***********************************************************************************************************************/
@@ -398,6 +424,8 @@ function gfBuildPath(...$aPathParts) {
 /**********************************************************************************************************************
 * Strips the constant ROOT_PATH from a string
 *
+* @dep ROOT_PATH
+* @dep EMPTY_STRING
 * @param $aPath   Path to be stripped
 * @returns        Stripped path
 ***********************************************************************************************************************/
@@ -406,8 +434,26 @@ function gfStripRootPath($aPath) {
 }
 
 /**********************************************************************************************************************
+* Get a subdomain or base domain from a host
+*
+* @dep DOT
+* @dep gfExplodeString()
+* @param $aHost       Hostname
+* @param $aReturnSub  Should return subdmain
+* @returns            domain or subdomain
+***********************************************************************************************************************/
+function gfGetDomain($aHost, $aReturnSub = null) {
+  $host = gfExplodeString(DOT, $aHost);
+  $domainSlice = $aReturnSub ? array_slice($host, 0, -2) : array_slice($host, -2, 2);
+  $domainString = implode(DOT, $domainSlice);
+  return $domainString;
+}
+
+/**********************************************************************************************************************
 * Includes a module
 *
+* @dep MODULES - Phoebus-Style Array Constant
+* @dep gfError()
 * @param $aModules    List of modules
 **********************************************************************************************************************/
 function gfImportModules(...$aModules) {
@@ -439,8 +485,10 @@ function gfImportModules(...$aModules) {
 }
 
 /**********************************************************************************************************************
-* Check if a module is in $arrayIncludes
+* Check if a module has been included
 *
+* @dep EMPTY_ARRAY
+* @dep gfError()
 * @param $aClass      Class name
 * @param $aIncludes   List of includes
 **********************************************************************************************************************/
@@ -480,6 +528,10 @@ function gfEnsureModules($aClass, ...$aIncludes) {
 /**********************************************************************************************************************
 * Read file (decode json if the file has that extension or parse install.rdf if that is the target file)
 *
+* @dep JSON_EXTENSION
+* @dep gfError()
+* @dep gfSuperVar()
+* @dep $gmMozillaRDF - Conditional
 * @param $aFile     File to read
 * @returns          file contents or array if json
                     null if error, empty string, or empty array
@@ -508,6 +560,7 @@ function gfReadFile($aFile) {
 /**********************************************************************************************************************
 * Read file from zip-type archive
 *
+* @dep gfReadFile()
 * @param $aArchive  Archive to read
 * @param $aFile     File in archive
 * @returns          file contents or array if json
@@ -520,6 +573,10 @@ function gfReadFileFromArchive($aArchive, $aFile) {
 /**********************************************************************************************************************
 * Write file (encodes json if the file has that extension)
 *
+* @dep JSON_EXTENSION
+* @dep JSON_ENCODE_FLAGS
+* @dep FILE_WRITE_FLAGS
+* @dep gfSuperVar()
 * @param $aData     Data to be written
 * @param $aFile     File to write
 * @returns          true else return error string
@@ -568,6 +625,8 @@ function gfHexString($aLength = 40) {
 /**********************************************************************************************************************
 * Basic Filter Substitution of a string
 *
+* @dep SPACE
+* @dep gfError()
 * @param $aSubsts               multi-dimensional array of keys and values to be replaced
 * @param $aString               string to operate on
 * @param $aRegEx                set to true if pcre
@@ -586,7 +645,7 @@ function gfSubst($aSubsts, $aString, $aRegEx = null) {
 
   if ($aRegEx) {
     foreach ($aSubsts as $_key => $_value) {
-      $string = preg_replace('/' . $_key . '/iU', $_value, $string);
+      $string = preg_replace($_key, $_value, $string);
     }
   }
   else {
@@ -604,6 +663,8 @@ function gfSubst($aSubsts, $aString, $aRegEx = null) {
 
 /**********************************************************************************************************************
 * Request HTTP Basic Authentication
+*
+* @dep gfError()
 ***********************************************************************************************************************/
 function gfBasicAuthPrompt() {
   header('WWW-Authenticate: Basic realm="' . SOFTWARE_NAME . '"');
@@ -614,6 +675,13 @@ function gfBasicAuthPrompt() {
 /**********************************************************************************************************************
 * Local Authentication from a pre-defined json file with user and hashed passwords
 *
+* @dep ROOT_PATH
+* @dep DOTDOT
+* @dep JSON_EXTENSION
+* @dep gfError()
+* @dep gfSuperVar()
+* @dep gfBuildPath()
+* @dep gfBasicAuthPrompt()
 * @param $aTobinOnly   Only Tobin's username is valid
 ***********************************************************************************************************************/
 function gfLocalAuth($aTobinOnly = null) {
