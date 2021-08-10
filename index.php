@@ -23,24 +23,6 @@ const SOFTWARE_VERSION    = '1.0.0a1';
 // the globalConstants/globalFunctions scheme used by other BinOC Applications.
 require_once('./fundamentals.php');
 
-
-const HTTPS_SCHEME          = 'https' . SCHEME_SUFFIX;
-const BINOC_DOMAIN          = 'binaryoutcast.com';
-
-// ====================================================================================================================
-
-// == | Functions | ===================================================================================================
-
-/**********************************************************************************************************************
-* Adhoc load a "component" and ensure that the script exits after execution if not terminated earlier
-*
-* @param $aComponentPath  string
-**********************************************************************************************************************/
-function gfLoadComponent($aComponentPath) {
-  require_once($aComponent);
-  exit();
-}
-
 // ====================================================================================================================
 
 // == | Main | ========================================================================================================
@@ -85,11 +67,12 @@ if ($gaRuntime['qComponent'] != 'site') {
 $gaRuntime['currentDomain'] = gfSuperVar('var', gfGetDomain($gaRuntime['phpServerName']));
 $gaRuntime['currentSubDomain'] = gfSuperVar('var', gfGetDomain($gaRuntime['phpServerName'], true));
 
-// Switch to the special component
+// --------------------------------------------------------------------------------------------------------------------
+
+// Switch to the special component internally
 $gaRuntime['qComponent'] = 'special';
 require_once(gfBuildPath(ROOT_PATH, 'base', $gaRuntime['qComponent'] . PHP_EXTENSION));
 exit();
-}
 
 // ====================================================================================================================
 ?>
