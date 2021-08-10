@@ -85,48 +85,10 @@ if ($gaRuntime['qComponent'] != 'site') {
 $gaRuntime['currentDomain'] = gfSuperVar('var', gfGetDomain($gaRuntime['phpServerName']));
 $gaRuntime['currentSubDomain'] = gfSuperVar('var', gfGetDomain($gaRuntime['phpServerName'], true));
 
-// Perform actions based on the domain or optionally the subdomain
-switch ($gaRuntime['currentDomain']) {
-  case BINOC_DOMAIN:
-    switch ($gaRuntime['currentSubDomain']) {
-      case 'metropolis':
-        $gaRuntime['qComponent'] = 'special';
-        require_once(gfBuildPath(ROOT_PATH, 'base', $gaRuntime['qComponent'] . PHP_EXTENSION));
-        exit();
-      case 'go':
-        $gaRuntime['qDirect'] = $_GET['direct'] ?? null;
-        $gaRuntime['qAlias'] = gfSuperVar('get', 'alias');
-        $gaGoAliases = [];
-
-        if ($gaRuntime['qDirect']) {
-          gfRedirect($gaRuntime['qDirect']);
-        }
-
-        if (array_key_exists($gaRuntime['qAlias'], $gaGoAliases)) {
-          gfRedirect($gaGoAliases[$gaRuntime['qAlias']]);
-        }
-
-        gfHeader(404);
-      case 'repository':
-          $gvProjectsSubdomain = $gaRuntime['currentScheme'] . SCHEME_SUFFIX . 'projects' . DOT . BINOC_DOMAIN;
-          if (str_starts_with($gaRuntime['qPath'], '/projects/interlink')) {
-            gfRedirect($gvProjectsSubdomain . str_replace('/projects', '', $gaRuntime['qPath']));
-          }
-          elseif (str_starts_with($gaRuntime['qPath'], '/dicts')) {
-            gfRedirect($gvProjectsSubdomain . $gaRuntime['qPath']);
-          }
-          else {
-            gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN);
-          }
-        break;
-      case 'irc': gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN . SLASH . 'interact' . SLASH);
-      case 'git': gfRedirect('https://repo.palemoon.org/binaryoutcast' . $gaRuntime['qPath']);
-      case 'interlink-addons': gfRedirect('https://addons.binaryoutcast.com/interlink' . $gaRuntime['qPath']);
-    }
-  case 'fossamail.org':
-    gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN . gfBuildPath('projects', 'interlink'));
-  default:
-    gfRedirect(HTTPS_SCHEME . BINOC_DOMAIN);
+// Switch to the special component
+$gaRuntime['qComponent'] = 'special';
+require_once(gfBuildPath(ROOT_PATH, 'base', $gaRuntime['qComponent'] . PHP_EXTENSION));
+exit();
 }
 
 // ====================================================================================================================
