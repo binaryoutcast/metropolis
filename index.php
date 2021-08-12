@@ -25,6 +25,48 @@ require_once('./fundamentals.php');
 
 // ====================================================================================================================
 
+// == | Global Functions | ============================================================================================
+
+/**********************************************************************************************************************
+* Local Authentication from a pre-defined json file with user and hashed passwords
+*
+* @dep ROOT_PATH
+* @dep DOTDOT
+* @dep JSON_EXTENSION
+* @dep gfError()
+* @dep gfSuperVar()
+* @dep gfBuildPath()
+* @dep gfBasicAuthPrompt()
+* @param $aTobinOnly   Only Tobin's username is valid
+***********************************************************************************************************************/
+function gfLocalAuth($aTobinOnly = null) {
+  global $gaRuntime;
+
+  $username = gfSuperVar('server', 'PHP_AUTH_USER');
+  $password = gfSuperVar('server', 'PHP_AUTH_PW');
+
+  if ((!$username || !$password) || ($aTobinOnly && $username != 'mattatobin')) {
+    gfBasicAuthPrompt();
+  }
+
+  $configPath = gfBuildPath(ROOT_PATH, DOTDOT, 'storage', 'config' . JSON_EXTENSION);
+  $userdb = gfReadFile($configPath);
+  
+  if (!$userdb) {
+    gfError('Could not read configuration.');
+  }
+
+  $userdb = $userdb['userdb'];
+  
+  if (!array_key_exists($username, $userdb) || !password_verify($password, $userdb[$username])) {
+    gfBasicAuthPrompt();
+  }
+
+  $gaRuntime['authentication']['username'] = $username;
+}
+
+// ====================================================================================================================
+
 // == | Main | ========================================================================================================
 
 // Define an array that will hold the current application state

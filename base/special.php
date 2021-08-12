@@ -66,8 +66,6 @@ function gfGenContent($aTitle, $aContent, $aTextBox = null, $aList = null, $aErr
   exit();
 }
 
-// --------------------------------------------------------------------------------------------------------------------
-
 /**********************************************************************************************************************
 * Checks the exploded count against the number of path parts in an exploded path and 404s it if it is greater
 ***********************************************************************************************************************/
@@ -87,14 +85,14 @@ gfLocalAuth();
 
 // The Special Component doesn't intend on having more than one level on metropolis
 gfCheckPathCount(1);
+$gvSpecialFunction = $gaRuntime['explodedPath'][0];
 
-switch ($gaRuntime['explodedPath'][0]) {
-  case 'phpinfo':
-    phpinfo(INFO_GENERAL | INFO_CONFIGURATION | INFO_ENVIRONMENT | INFO_VARIABLES);
-    break;
-  case 'software-state':
-    gfGenContent('Software State', $gaRuntime);
-    break;
+switch ($gvSpecialFunction) {
+  case 'root':
+    $rootHTML = '<a href="/test/">Test Cases</a></li><li>' .
+                '<a href="/phpinfo/">PHP Info</a></li><li>' .
+                '<a href="/software-state/">Software State</a>';
+    gfGenContent('Functions', $rootHTML, null, true);
   case 'test':
     $gaRuntime['requestTestCase'] = gfSuperVar('get', 'case');
     $arrayTestsGlob = glob('./base/tests/*.php');
@@ -124,11 +122,13 @@ switch ($gaRuntime['explodedPath'][0]) {
 
     gfGenContent('Test Cases', $testsHTML);
     break;
-  case 'root':
-    $rootHTML = '<a href="/test/">Test Cases</a></li><li>' .
-                '<a href="/phpinfo/">PHP Info</a></li><li>' .
-                '<a href="/software-state/">Software State</a>';
-    gfGenContent('Functions', $rootHTML, null, true);
+  case 'phpinfo':
+    gfHeader('html');
+    phpinfo(INFO_GENERAL | INFO_CONFIGURATION | INFO_ENVIRONMENT | INFO_VARIABLES);
+    break;
+  case 'software-state':
+    gfGenContent('Software State', $gaRuntime);
+    break;
   default:
     gfHeader(404);
 }

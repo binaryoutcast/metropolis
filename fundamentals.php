@@ -1,4 +1,8 @@
 <?php
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at http://mozilla.org/MPL/2.0/.
+
 // == | Setup | =======================================================================================================
 
 // Check if the basic defines have been defined in the including script
@@ -18,7 +22,7 @@ define('BINOC_FUNCTIONS', 1);
 
 // ====================================================================================================================
 
-// == | Global Constants | ======================================================================================
+// == | Global Constants | ============================================================================================
 
 const PHP_ERROR_CODES       = array(
   E_ERROR                   => 'Fatal Error',
@@ -69,18 +73,17 @@ const SCHEME_SUFFIX         = "://";
 
 const PHP_EXTENSION         = DOT . 'php';
 const INI_EXTENSION         = DOT . 'ini';
+const HTML_EXTENSION        = DOT . 'html';
 const XML_EXTENSION         = DOT . 'xml';
+const RDF_EXTENSION         = DOT . 'rdf';
 const JSON_EXTENSION        = DOT . 'json';
+const CONTENT_EXTENSION     = DOT . 'content';
+const XPINSTALL_EXTENSION   = DOT . 'xpi';
 const TEMP_EXTENSION        = DOT . 'temp';
 
 // --------------------------------------------------------------------------------------------------------------------
 
 const XML_TAG               = '<?xml version="1.0" encoding="utf-8" ?>';
-
-// --------------------------------------------------------------------------------------------------------------------
-
-const XPINSTALL_EXTENSION   = DOT . 'xpi';
-const RDF_EXTENSION         = DOT . 'rdf';
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -95,6 +98,7 @@ const FILE_WRITE_FLAGS      = "w+";
 // --------------------------------------------------------------------------------------------------------------------
 
 const REGEX_GET_FILTER      = "/[^-a-zA-Z0-9_\-\/\{\}\@\.\%\s\,]/";
+const REGEX_YAML_FILTER     = "/\A---(.|\n)*?---/";
 const REGEX_GUID            = "/^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$/i";
 const REGEX_HOST            = "/[a-z0-9-\._]+\@[a-z0-9-\._]+/i";
 
@@ -180,6 +184,7 @@ function gfError($aValue, $phpError = false) {
 
   $externalOutput = function_exists('gfGenContent');
   $isCLI = (php_sapi_name() == "cli");
+  $isOutput = false;
 
   if (is_string($aValue) || is_int($aValue)) {
     $eContentType = 'text/xml';
@@ -193,6 +198,7 @@ function gfError($aValue, $phpError = false) {
     }
   }
   else {
+    $isOutput = true;
     $eContentType = 'application/json';
     $ePrefix = $pageHeader['output'];
     $eMessage = json_encode($aValue, JSON_ENCODE_FLAGS);
@@ -203,6 +209,10 @@ function gfError($aValue, $phpError = false) {
       gfGenContent($ePrefix, $eMessage, null, true, true);
     }
 
+    if ($isOutput) {
+      gfGenContent($ePrefix, $eMessage, true, false, true);
+    }
+    
     gfGenContent($ePrefix, $eMessage);
   }
   elseif ($isCLI) {
@@ -347,7 +357,7 @@ function gfHeader($aHeader) {
 **********************************************************************************************************************/
 // This function sends a redirect header
 function gfRedirect($aURL) {
-	header('Location: ' . $aURL , true, 302);
+  header('Location: ' . $aURL , true, 302);
   
   // We are done here
   exit();
@@ -545,7 +555,7 @@ function gfReadFile($aFile) {
   }
 
   // If it is a mozilla install manifest and the module has been included then parse it
-  if (str_ends_with($aFile, 'install.rdf') && array_key_exists('gmMozillaRDF', $GLOBALS)) {
+  if (str_ends_with($aFile, RDF_INSTALL_MANIFEST) && array_key_exists('gmMozillaRDF', $GLOBALS)) {
     global $gmMozillaRDF;
     $file = $gmMozillaRDF->parseInstallManifest($file);
 
@@ -625,6 +635,8 @@ function gfHexString($aLength = 40) {
 /**********************************************************************************************************************
 * Basic Filter Substitution of a string
 *
+* @dep EMPTY_STRING
+* @dep SLASH
 * @dep SPACE
 * @dep gfError()
 * @param $aSubsts               multi-dimensional array of keys and values to be replaced
@@ -632,82 +644,46 @@ function gfHexString($aLength = 40) {
 * @param $aRegEx                set to true if pcre
 * @returns                      bitwise int value representing applications
 ***********************************************************************************************************************/
-function gfSubst($aSubsts, $aString, $aRegEx = null) {
+function gfSubst($aMode, $aSubsts, $aString) {
+  $ePrefix = __FUNCTION__ . DASH_SEPARATOR;
   if (!is_array($aSubsts)) {
-    gfError('$aSubsts must be an array');
+    gfError($ePrefix . '$aSubsts must be an array');
   }
 
   if (!is_string($aString)) {
-    gfError('$aString must be a string');
+    gfError($ePrefix . '$aString must be a string');
   }
 
-  $string = $aString;
+  $rv = $aString;
 
-  if ($aRegEx) {
-    foreach ($aSubsts as $_key => $_value) {
-      $string = preg_replace($_key, $_value, $string);
-    }
-  }
-  else {
-    foreach ($aSubsts as $_key => $_value) {
-      $string = str_replace('{%' . $_key . '}', $_value, $string);
-    }
-  }
-
-  if (!$string) {
-    gfError('Something has gone wrong with' . SPACE . __FUNCTION__);
+  switch ($aMode) {
+    case 'simple':
+      foreach ($aSubsts as $_key => $_value) { $rv = str_replace($_key, $_value, $rv); }
+      break;
+    case 'regex':
+      foreach ($aSubsts as $_key => $_value) { $rv = preg_replace(SLASH . $_key . SLASH . 'iU', $_value, $rv); }
+      break;
+    default:
+      gfError($ePrefix . 'Unknown mode');
   }
 
-  return $string;
+  if (!$rv) {
+    gfError($ePrefix . 'Something has gone wrong...');
+  }
+
+  return $rv;
 }
 
 /**********************************************************************************************************************
 * Request HTTP Basic Authentication
 *
+* @dep SOFTWARE_NAME
 * @dep gfError()
 ***********************************************************************************************************************/
 function gfBasicAuthPrompt() {
   header('WWW-Authenticate: Basic realm="' . SOFTWARE_NAME . '"');
   header('HTTP/1.0 401 Unauthorized');   
   gfError('You need to enter a valid username and password.');
-}
-
-/**********************************************************************************************************************
-* Local Authentication from a pre-defined json file with user and hashed passwords
-*
-* @dep ROOT_PATH
-* @dep DOTDOT
-* @dep JSON_EXTENSION
-* @dep gfError()
-* @dep gfSuperVar()
-* @dep gfBuildPath()
-* @dep gfBasicAuthPrompt()
-* @param $aTobinOnly   Only Tobin's username is valid
-***********************************************************************************************************************/
-function gfLocalAuth($aTobinOnly = null) {
-  global $gaRuntime;
-
-  $username = gfSuperVar('server', 'PHP_AUTH_USER');
-  $password = gfSuperVar('server', 'PHP_AUTH_PW');
-
-  if ((!$username || !$password) || ($aTobinOnly && $username != 'mattatobin')) {
-    gfBasicAuthPrompt();
-  }
-
-  $configPath = gfBuildPath(ROOT_PATH, DOTDOT, 'storage', 'config' . JSON_EXTENSION);
-  $userdb = gfReadFile($configPath);
-  
-  if (!$userdb) {
-    gfError('Could not read configuration.');
-  }
-
-  $userdb = $userdb['userdb'];
-  
-  if (!array_key_exists($username, $userdb) || !password_verify($password, $userdb[$username])) {
-    gfBasicAuthPrompt();
-  }
-
-  $gaRuntime['authentication']['username'] = $username;
 }
 
 // ====================================================================================================================
