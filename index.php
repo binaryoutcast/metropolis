@@ -30,9 +30,9 @@ require_once('./fundamentals.php');
 /**********************************************************************************************************************
 * Basic Content Generation using the Special Component's Template
 ***********************************************************************************************************************/
-function gfGenContent($aMetadata, $aLegacy = null, $aTextBox = null, $aList = null, $aError = null) {
+function gfGenContent($aMetadata, $aLegacyContent = null, $aTextBox = null, $aList = null, $aError = null) {
   $ePrefix = __FUNCTION__ . DASH_SEPARATOR;
-  $skinPath = '/skin/default/';
+  $skinPath = '/skin/default';
 
   // Anonymous functions
   $contentIsStringish = function($aContent) {
@@ -44,7 +44,7 @@ function gfGenContent($aMetadata, $aLegacy = null, $aTextBox = null, $aList = nu
            $aContent . '</textarea>';
   };
 
-  $template = gfReadFile(DOT . $skinPath . 'template.xhtml');
+  $template = gfReadFile(DOT . $skinPath . SLASH . 'template.xhtml');
 
   if (!$template) {
     gfError($ePrefix . 'Special Template is busted...', null, true);
@@ -60,7 +60,7 @@ function gfGenContent($aMetadata, $aLegacy = null, $aTextBox = null, $aList = nu
     '{$SOFTWARE_VERSION}' => SOFTWARE_VERSION,
   );
 
-  if ($aLegacy) {
+  if ($aLegacyContent) {
     if (is_array($aMetadata)) {
       gfError($ePrefix . 'aMetadata may not be an array in legacy mode.');
     }
@@ -69,21 +69,21 @@ function gfGenContent($aMetadata, $aLegacy = null, $aTextBox = null, $aList = nu
       gfError($ePrefix . 'You cannot use both textbox and list');
     }
 
-    if ($contentIsStringish($aLegacy)) {
-      $aLegacy = var_export($aLegacy, true);
+    if ($contentIsStringish($aLegacyContent)) {
+      $aLegacyContent = var_export($aLegacyContent, true);
       $aTextBox = true;
       $aList = false;
     }
 
     if ($aTextBox) {
-      $aLegacy = $textboxContent($aLegacy);
+      $aLegacyContent = $textboxContent($aLegacyContent);
     }
     elseif ($aList) {
-      // We are using an unordered list so put aLegacy in there
-      $aLegacy = '<ul><li>' . $aLegacy . '</li><ul>';
+      // We are using an unordered list so put aLegacyContent in there
+      $aLegacyContent = '<ul><li>' . $aLegacyContent . '</li><ul>';
     }
 
-    if ($GLOBALS['gaRuntime']['qTestCase'] ?? null) {
+    if (!$aError && ($GLOBALS['gaRuntime']['qTestCase'] ?? null)) {
       $pageSubsts['{$PAGE_TITLE}'] = 'Test Case' . DASH_SEPARATOR . $GLOBALS['gaRuntime']['qTestCase'];
 
       foreach ($GLOBALS['gaRuntime']['siteMenu'] ?? EMPTY_ARRAY as $_key => $_value) {
@@ -94,7 +94,7 @@ function gfGenContent($aMetadata, $aLegacy = null, $aTextBox = null, $aList = nu
       $pageSubsts['{$PAGE_TITLE}'] = $aMetadata;
     }
 
-    $pageSubsts['{$PAGE_CONTENT}'] = $aLegacy;
+    $pageSubsts['{$PAGE_CONTENT}'] = $aLegacyContent;
   }
   else {
     if ($aTextBox || $aList) {
