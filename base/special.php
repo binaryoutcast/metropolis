@@ -6,67 +6,6 @@
 // == | Functions | ===================================================================================================
 
 /**********************************************************************************************************************
-* Basic Content Generation using the Special Component's Template
-***********************************************************************************************************************/
-function gfGenContent($aTitle, $aContent, $aTextBox = null, $aList = null, $aError = null) {
-  $templateHead = @file_get_contents('./skin/special/template-header.xhtml');
-  $templateFooter = @file_get_contents('./skin/special/template-footer.xhtml');
-
-  // Make sure the template isn't busted, if it is send a text only error as an array
-  if (!$templateHead || !$templateFooter) {
-    gfError([__FUNCTION__ . ': Special Template is busted...', $aTitle, $aContent], -1);
-  }
-
-  // Can't use both the textbox and list arguments
-  if ($aTextBox && $aList) {
-    gfError(__FUNCTION__ . ': You cannot use both textbox and list');
-  }
-
-  // Anonymous function to determin if aContent is a string-ish or not
-  $notString = function() use ($aContent) {
-    return (!is_string($aContent) && !is_int($aContent)); 
-  };
-
-  // If not a string var_export it and enable the textbox
-  if ($notString()) {
-    $aContent = var_export($aContent, true);
-    $aTextBox = true;
-    $aList = false;
-  }
-
-  // Use either a textbox or an unordered list
-  if ($aTextBox) {
-    // We are using the textbox so put aContent in there
-    $aContent = '<textarea style="width: 1195px; resize: none;" name="content" rows="36" readonly>' .
-                $aContent .
-                '</textarea>';
-  }
-  elseif ($aList) {
-    // We are using an unordered list so put aContent in there
-    $aContent = '<ul><li>' . $aContent . '</li><ul>';
-  }
-
-  // Set page title
-  $templateHead = str_replace('<title></title>',
-                  '<title>' . $aTitle . ' - ' . SOFTWARE_NAME . ' ' . SOFTWARE_VERSION . '</title>',
-                  $templateHead);
-
-  // If we are generating an error from gfError we want to clean the output buffer
-  if ($aError) {
-    ob_get_clean();
-  }
-
-  // Send an html header
-  header('Content-Type: text/html', false);
-
-  // write out the everything
-  print($templateHead . '<h2>' . $aTitle . '</h2>' . $aContent . $templateFooter);
-
-  // We're done here
-  exit();
-}
-
-/**********************************************************************************************************************
 * Checks the exploded count against the number of path parts in an exploded path and 404s it if it is greater
 ***********************************************************************************************************************/
 function gfCheckPathCount($aExpectedCount) {
@@ -87,14 +26,20 @@ gfLocalAuth();
 gfCheckPathCount(1);
 $gvSpecialFunction = $gaRuntime['explodedPath'][0];
 
+$gaRuntime['siteMenu'] = array(
+  '/'                 => 'Root',
+  '/test/'            => 'Test Cases',
+  '/software-state/'  => 'Software State',
+  '/phpinfo/'         => 'PHP Info',
+);
+
 switch ($gvSpecialFunction) {
   case 'root':
-    $rootHTML = '<a href="/test/">Test Cases</a></li><li>' .
-                '<a href="/phpinfo/">PHP Info</a></li><li>' .
-                '<a href="/software-state/">Software State</a>';
-    gfGenContent('Functions', $rootHTML, null, true);
+    gfGenContent(['title' => 'Special Component',
+                  'content' => '<h2>Welcome to the Special Component!</h2><p>Please select a function from the command bar above.</p>',
+                  'menu' => $gaRuntime['siteMenu']]);
   case 'test':
-    $gaRuntime['requestTestCase'] = gfSuperVar('get', 'case');
+    $gaRuntime['qTestCase'] = gfSuperVar('get', 'case');
     $arrayTestsGlob = glob('./base/tests/*.php');
     $arrayFinalTests = [];
 
@@ -104,30 +49,34 @@ switch ($gvSpecialFunction) {
 
     unset($arrayTestsGlob);
 
-    if ($gaRuntime['requestTestCase']) {
-      if (!in_array($gaRuntime['requestTestCase'], $arrayFinalTests)) {
+    if ($gaRuntime['qTestCase']) {
+      if (!in_array($gaRuntime['qTestCase'], $arrayFinalTests)) {
         gfError('Unknown test case');
       }
 
-      require_once('./base/tests/' . $gaRuntime['requestTestCase'] . '.php');
+      require_once('./base/tests/' . $gaRuntime['qTestCase'] . '.php');
     }
 
-    $testsHTML = '';
+    $testsHTML = EMPTY_STRING;
 
     foreach ($arrayFinalTests as $_value) {
       $testsHTML .= '<li><a href="/test/?case=' . $_value . '">' . $_value . '</a></li>';
     }
 
-    $testsHTML = '<ul>' . $testsHTML . '</ul>';
+    $testsHTML = '<h2>Please select a test case&hellip;</h2><ul>' . $testsHTML . '</ul>';
 
-    gfGenContent('Test Cases', $testsHTML);
+    gfGenContent(['title' => 'Test Cases',
+                  'content' => $testsHTML,
+                  'menu' => $gaRuntime['siteMenu']]);
     break;
   case 'phpinfo':
     gfHeader('html');
     phpinfo(INFO_GENERAL | INFO_CONFIGURATION | INFO_ENVIRONMENT | INFO_VARIABLES);
     break;
   case 'software-state':
-    gfGenContent('Software State', $gaRuntime);
+    gfGenContent(['title' => 'Software State',
+                  'content' => $gaRuntime,
+                  'menu' => $gaRuntime['siteMenu']]);
     break;
   default:
     gfHeader(404);

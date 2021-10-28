@@ -28,6 +28,123 @@ require_once('./fundamentals.php');
 // == | Global Functions | ============================================================================================
 
 /**********************************************************************************************************************
+* Basic Content Generation using the Special Component's Template
+***********************************************************************************************************************/
+function gfGenContent($aMetadata, $aLegacy = null, $aTextBox = null, $aList = null, $aError = null) {
+  $ePrefix = __FUNCTION__ . DASH_SEPARATOR;
+  $skinPath = '/skin/default/';
+
+  // Anonymous functions
+  $contentIsStringish = function($aContent) {
+    return (!is_string($aContent) && !is_int($aContent)); 
+  };
+
+  $textboxContent = function($aContent) {
+    return '<textarea class="special-textbox aligncenter" name="content" rows="36" readonly>' .
+           $aContent . '</textarea>';
+  };
+
+  $template = gfReadFile(DOT . $skinPath . 'template.xhtml');
+
+  if (!$template) {
+    gfError($ePrefix . 'Special Template is busted...', null, true);
+  }
+
+  $pageSubsts = array(
+    '{$SKIN_PATH}'        => $skinPath,
+    '{$SITE_NAME}'        => defined('SITE_NAME') ? SITE_NAME : SOFTWARE_NAME . SPACE . SOFTWARE_VERSION,
+    '{$SITE_MENU}'        => EMPTY_STRING,
+    '{$PAGE_TITLE}'       => null,
+    '{$PAGE_CONTENT}'     => null,
+    '{$SOFTWARE_NAME}'    => SOFTWARE_NAME,
+    '{$SOFTWARE_VERSION}' => SOFTWARE_VERSION,
+  );
+
+  if ($aLegacy) {
+    if (is_array($aMetadata)) {
+      gfError($ePrefix . 'aMetadata may not be an array in legacy mode.');
+    }
+
+    if ($aTextBox && $aList) {
+      gfError($ePrefix . 'You cannot use both textbox and list');
+    }
+
+    if ($contentIsStringish($aLegacy)) {
+      $aLegacy = var_export($aLegacy, true);
+      $aTextBox = true;
+      $aList = false;
+    }
+
+    if ($aTextBox) {
+      $aLegacy = $textboxContent($aLegacy);
+    }
+    elseif ($aList) {
+      // We are using an unordered list so put aLegacy in there
+      $aLegacy = '<ul><li>' . $aLegacy . '</li><ul>';
+    }
+
+    if ($GLOBALS['gaRuntime']['qTestCase'] ?? null) {
+      $pageSubsts['{$PAGE_TITLE}'] = 'Test Case' . DASH_SEPARATOR . $GLOBALS['gaRuntime']['qTestCase'];
+
+      foreach ($GLOBALS['gaRuntime']['siteMenu'] ?? EMPTY_ARRAY as $_key => $_value) {
+        $pageSubsts['{$SITE_MENU}'] .= '<li><a href="' . $_key . '">' . $_value . '</a></li>';
+      }
+    }
+    else {
+      $pageSubsts['{$PAGE_TITLE}'] = $aMetadata;
+    }
+
+    $pageSubsts['{$PAGE_CONTENT}'] = $aLegacy;
+  }
+  else {
+    if ($aTextBox || $aList) {
+      gfError($ePrefix . 'Mode attributes are deprecated.');
+    }
+
+    if (!array_key_exists('title', $aMetadata) && !array_key_exists('content', $aMetadata)) {
+      gfError($ePrefix . 'You must specify a title and content');
+    }
+
+    $pageSubsts['{$PAGE_TITLE}'] = $aMetadata['title'];
+    $pageSubsts['{$PAGE_CONTENT}'] = $contentIsStringish($aMetadata['content']) ?
+                                     $textboxContent(var_export($aMetadata['content'], true)) :
+                                     $aMetadata['content'];
+
+    foreach ($aMetadata['menu'] ?? EMPTY_ARRAY as $_key => $_value) {
+      $pageSubsts['{$SITE_MENU}'] .= '<li><a href="' . $_key . '">' . $_value . '</a></li>';
+    }
+  }
+
+  if ($pageSubsts['{$SITE_MENU}'] == EMPTY_STRING) {
+    $pageSubsts['{$SITE_MENU}'] = '<li><a href="/">Root</a></li>';
+  }
+
+  if (!str_starts_with($pageSubsts['{$PAGE_CONTENT}'], '<p') &&
+      !str_starts_with($pageSubsts['{$PAGE_CONTENT}'], '<ul') &&
+      !str_starts_with($pageSubsts['{$PAGE_CONTENT}'], '<h1') &&
+      !str_starts_with($pageSubsts['{$PAGE_CONTENT}'], '<h2') &&
+      !str_starts_with($pageSubsts['{$PAGE_CONTENT}'], '<table')) {
+    $pageSubsts['{$PAGE_CONTENT}'] = '<p>' . $pageSubsts['{$PAGE_CONTENT}'] . '</p>';
+  }
+
+  $template = gfSubst('string', $pageSubsts, $template);
+
+  // If we are generating an error from gfError we want to clean the output buffer
+  if ($aError) {
+    ob_get_clean();
+  }
+
+  // Send an html header
+  header('Content-Type: text/html', false);
+
+  // write out the everything
+  print($template);
+
+  // We're done here
+  exit();
+}
+
+/**********************************************************************************************************************
 * Local Authentication from a pre-defined json file with user and hashed passwords
 *
 * @dep ROOT_PATH

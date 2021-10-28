@@ -46,11 +46,15 @@ const PHP_ERROR_CODES       = array(
 const HTTP_HEADERS          = array(
   404                       => 'HTTP/1.1 404 Not Found',
   501                       => 'HTTP/1.1 501 Not Implemented',
-  'html'                    => 'Content-Type: text/html',
   'text'                    => 'Content-Type: text/plain',
+  'html'                    => 'Content-Type: text/html',
+  'css'                     => 'Content-Type: text/css',
   'xml'                     => 'Content-Type: text/xml',
   'json'                    => 'Content-Type: application/json',
-  'css'                     => 'Content-Type: text/css',
+  'bin'                     => 'Content-Type: application/octet-stream',
+  'xpi'                     => 'Content-Type: application/x-xpinstall',
+  '7z'                      => 'Content-Type: application/x-7z-compressed',
+  'xz'                      => 'Content-Type: application/x-xz',
 );
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -64,6 +68,7 @@ const SLASH                 = "/";
 const DOT                   = ".";
 const DASH                  = "-";
 const UNDERSCORE            = "_";
+const PIPE                  = "|";
 const DOTDOT                = DOT . DOT;
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -79,6 +84,11 @@ const RDF_EXTENSION         = DOT . 'rdf';
 const JSON_EXTENSION        = DOT . 'json';
 const CONTENT_EXTENSION     = DOT . 'content';
 const XPINSTALL_EXTENSION   = DOT . 'xpi';
+const WINSTALLER_EXTENSION  = DOT . 'installer' . DOT .'exe';
+const WINPORTABLE_EXTENSION = DOT . 'portable' . DOT .'exe';
+const SEVENZIP_EXTENSION    = DOT . '7z';
+const TARXZ_EXTENSION       = DOT . 'tar' . DOT . 'xz';
+const MAR_EXTENSION         = DOT . 'complete' . DOT .'mar';
 const TEMP_EXTENSION        = DOT . 'temp';
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -174,7 +184,7 @@ if (!function_exists('str_contains')) {
 * @dep XML_TAG
 * @dep JSON_ENCODE_FLAGS
 **********************************************************************************************************************/
-function gfError($aValue, $phpError = false) { 
+function gfError($aValue, $aPHPError = false, $aDisableExternalOutput = null) { 
   $pageHeader = array(
     'default' => 'Unable to Comply',
     'fatal'   => 'Fatal Error',
@@ -182,13 +192,13 @@ function gfError($aValue, $phpError = false) {
     'output'  => 'Output'
   );
 
-  $externalOutput = function_exists('gfGenContent');
+  $externalOutput = !$aDisableExternalOutput ?? function_exists('gfGenContent');
   $isCLI = (php_sapi_name() == "cli");
   $isOutput = false;
 
   if (is_string($aValue) || is_int($aValue)) {
     $eContentType = 'text/xml';
-    $ePrefix = $phpError ? $pageHeader['php'] : $pageHeader['default'];
+    $ePrefix = $aPHPError ? $pageHeader['php'] : $pageHeader['default'];
 
     if ($externalOutput || $isCLI) {
       $eMessage = $aValue;
@@ -205,7 +215,7 @@ function gfError($aValue, $phpError = false) {
   }
 
   if ($externalOutput) {
-    if ($phpError) {
+    if ($aPHPError) {
       gfGenContent($ePrefix, $eMessage, null, true, true);
     }
 
@@ -336,16 +346,29 @@ function gfSuperVar($aVarType, $aVarValue, $aFalsy = null) {
 * @param $aHeader    Short name of header
 **********************************************************************************************************************/
 function gfHeader($aHeader) { 
-  if (!headers_sent() && array_key_exists($aHeader, HTTP_HEADERS)) {   
-    if (DEBUG_MODE) {
-      gfError(HTTP_HEADERS[$aHeader]);
-    }
-    else {
-      header(HTTP_HEADERS[$aHeader]);
+  $ePrefix = __FUNCTION__ . DASH_SEPARATOR;
+  $debugMode = DEBUG_MODE;
+  $isErrorPage = in_array($aHeader, [404, 501]);
 
-      if (in_array($aHeader, [404, 501])) {
-        exit();
-      }
+  if (array_key_exists('gaRuntime', $GLOBALS)) {
+    if (array_key_exists('debugMode', $GLOBALS['gaRuntime'])) {
+      $debugMode = $GLOBALS['gaRuntime']['debugMode'];
+    }
+  }
+
+  if (!array_key_exists($aHeader, HTTP_HEADERS)) {
+    gfError($ePrefix . 'Unknown' . SPACE . $aHeader . SPACE . 'header');
+  }
+
+  if ($debugMode && $isErrorPage) {
+    gfError($ePrefix . HTTP_HEADERS[$aHeader]);
+  }
+
+  if (!headers_sent()) { 
+    header(HTTP_HEADERS[$aHeader]);
+
+    if ($isErrorPage) {
+      exit();
     }
   }
 }
@@ -364,7 +387,7 @@ function gfRedirect($aURL) {
 }
 
 /**********************************************************************************************************************
-* Explodes a string to an array without empty elements if it starts or ends with the seperator
+* Explodes a string to an array without empty elements if it starts or ends with the separator
 *
 * @dep DASH_SEPARATOR
 * @dep gfError()
@@ -380,7 +403,7 @@ function gfExplodeString($aSeparator, $aString) {
   }
 
   if (!str_contains($aString, $aSeparator)) {
-    gfError($ePrefix . 'String does not contain the seperator');
+    gfError($ePrefix . 'String does not contain the separator');
   }
 
   $explodedString = array_values(array_filter(explode($aSeparator, $aString), 'strlen'));
@@ -658,6 +681,7 @@ function gfSubst($aMode, $aSubsts, $aString) {
 
   switch ($aMode) {
     case 'simple':
+    case 'string':
       foreach ($aSubsts as $_key => $_value) { $rv = str_replace($_key, $_value, $rv); }
       break;
     case 'regex':
