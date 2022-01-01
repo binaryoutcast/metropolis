@@ -35,48 +35,50 @@ $gaRuntime['siteMenu'] = array(
 
 switch ($gvSpecialFunction) {
   case 'root':
-    gfGenContent(['title' => 'Special Component',
-                  'content' => '<h2>Welcome to the Special Component!</h2><p>Please select a function from the command bar above.</p>',
-                  'menu' => $gaRuntime['siteMenu']]);
+    gfGenContent(['title'   => 'Special Component',
+                  'content' => '<h2>Welcome to the Special Component!</h2>' .
+                               '<p>Please select a function from the command bar above.</p>',
+                  'menu'    => $gaRuntime['siteMenu']]);
   case 'test':
     $gaRuntime['qTestCase'] = gfSuperVar('get', 'case');
-    $arrayTestsGlob = glob('./base/tests/*.php');
-    $arrayFinalTests = [];
+    $gvTestsPath = gfBuildPath(ROOT_PATH, 'base', 'tests');
+    $gaGlobTests = glob($gvTestsPath . WILDCARD . PHP_EXTENSION);
+    $gaTests = EMPTY_ARRAY;
 
-    foreach ($arrayTestsGlob as $_value) {
-      $arrayFinalTests[] = str_replace('.php', '', str_replace('./base/tests/', '', $_value));
+    foreach ($gaGlobTests as $_value) {
+      $gaTests[] = str_replace(PHP_EXTENSION, EMPTY_STRING, str_replace($gvTestsPath, EMPTY_STRING, $_value));
     }
 
-    unset($arrayTestsGlob);
-
     if ($gaRuntime['qTestCase']) {
-      if (!in_array($gaRuntime['qTestCase'], $arrayFinalTests)) {
+      if (!in_array($gaRuntime['qTestCase'], $gaTests)) {
         gfError('Unknown test case');
       }
 
-      require_once('./base/tests/' . $gaRuntime['qTestCase'] . '.php');
+      require_once($gvTestsPath . $gaRuntime['qTestCase'] . PHP_EXTENSION);
+      exit();
     }
 
-    $testsHTML = EMPTY_STRING;
+    $gvContent = EMPTY_STRING;
 
-    foreach ($arrayFinalTests as $_value) {
-      $testsHTML .= '<li><a href="/test/?case=' . $_value . '">' . $_value . '</a></li>';
+    foreach ($gaTests as $_value) {
+      $gvContent .= '<li><a href="/test/?case=' . $_value . '">' . $_value . '</a></li>';
     }
 
-    $testsHTML = '<h2>Please select a test case&hellip;</h2><ul>' . $testsHTML . '</ul>';
+    if ($gvContent == EMPTY_STRING) {
+      $gvContent = '<p>There are no test cases.</p>';
+    }
+    else {
+      $gvContent = '<h2>Please select a test case&hellip;</h2><ul>' . $gvContent . '</ul>';
+    }
 
-    gfGenContent(['title' => 'Test Cases',
-                  'content' => $testsHTML,
-                  'menu' => $gaRuntime['siteMenu']]);
+    gfGenContent(['title' => 'Test Cases', 'content' => $gvContent, 'menu' => $gaRuntime['siteMenu']]);
+    break;
+  case 'software-state':
+    gfGenContent(['title' => 'Software State', 'content' => $gaRuntime, 'menu' => $gaRuntime['siteMenu']]);
     break;
   case 'phpinfo':
     gfHeader('html');
     phpinfo(INFO_GENERAL | INFO_CONFIGURATION | INFO_ENVIRONMENT | INFO_VARIABLES);
-    break;
-  case 'software-state':
-    gfGenContent(['title' => 'Software State',
-                  'content' => $gaRuntime,
-                  'menu' => $gaRuntime['siteMenu']]);
     break;
   default:
     gfHeader(404);
