@@ -115,7 +115,7 @@ const REGEX_HOST            = "/[a-z0-9-\._]+\@[a-z0-9-\._]+/i";
 
 // --------------------------------------------------------------------------------------------------------------------
 
-const PASSWORD_CLEARTEXT    = "clear";
+const PASSWORD_CLEARTEXT    = "clrtxt";
 const PASSWORD_HTACCESS     = "apr1";
 
 const BASE64_ALPHABET       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
@@ -732,7 +732,7 @@ function gfPasswordHash($aPassword, $aCrypt = PASSWORD_BCRYPT, $aSalt = null) {
       gfError($ePrefix . 'Cannot "hash" this Clear Text password because it contains a dollar sign.');
     }
 
-    return DOLLAR . PASSWORD_CLEARTEXT . DOLLAR . $aPassword;
+    return DOLLAR . PASSWORD_CLEARTEXT . DOLLAR . time() . DOLLAR . $aPassword;
   }
 
   // We want to be able to generate Apache APR1-MD5 hashes for use in .htpasswd situations.
@@ -769,7 +769,6 @@ function gfPasswordHash($aPassword, $aCrypt = PASSWORD_BCRYPT, $aSalt = null) {
       if ($i % 3) {
         $new .= $salt;
       }
-
       if ($i % 7) {
         $new .= $aPassword;
       }
@@ -805,15 +804,15 @@ function gfPasswordHash($aPassword, $aCrypt = PASSWORD_BCRYPT, $aSalt = null) {
 function gfPasswordVerify($aPassword, $aHash) {
   $ePrefix = __FUNCTION__ . DASH_SEPARATOR;
 
-  // We can accept a pseudo-hash for clear text passwords in the format of $clear$clear-text-password
+  // We can accept a pseudo-hash for clear text passwords in the format of $clrtxt$unix-epoch$clear-text-password
   if (str_starts_with($aHash, DOLLAR . PASSWORD_CLEARTEXT)) {
-    $password = gfExplodeString(DOLLAR, $aHash)[1] ?? null;
+    $password = gfExplodeString(DOLLAR, $aHash) ?? null;
 
-    if($password == null || count($password) > 2) {
+    if ($password == null || count($password) > 3) {
       gfError($ePrefix . 'Unable to "verify" this Clear Text "hashed" password.');
     }
 
-    return $aPassword === $password;
+    return $aPassword === $password[2];
   }
 
   // We can also accept an Apache APR1-MD5 password that is commonly used in .htpasswd
@@ -824,7 +823,7 @@ function gfPasswordVerify($aPassword, $aHash) {
       gfError($ePrefix . 'Unable to verify this Apache APR1-MD5 hashed password.');
     }
 
-    return gfPasswdHash($aPassword, PASSWORD_HTACCESS, $salt) === $aHash;
+    return gfPasswordHash($aPassword, PASSWORD_HTACCESS, $salt) === $aHash;
   }
 
   // For everything else send to the native password_verify function.
