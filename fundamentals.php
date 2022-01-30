@@ -69,6 +69,7 @@ const DOT                   = ".";
 const DASH                  = "-";
 const UNDERSCORE            = "_";
 const PIPE                  = "|";
+const DOLLAR                = "\$";
 const DOTDOT                = DOT . DOT;
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -111,6 +112,14 @@ const REGEX_GET_FILTER      = "/[^-a-zA-Z0-9_\-\/\{\}\@\.\%\s\,]/";
 const REGEX_YAML_FILTER     = "/\A---(.|\n)*?---/";
 const REGEX_GUID            = "/^\{[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\}$/i";
 const REGEX_HOST            = "/[a-z0-9-\._]+\@[a-z0-9-\._]+/i";
+
+// --------------------------------------------------------------------------------------------------------------------
+
+const PASSWORD_CLEARTEXT    = "clear";
+const PASSWORD_HTACCESS     = "apr1";
+
+const BASE64_ALPHABET       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+const APRMD5_ALPHABET       = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
 
 // ====================================================================================================================
 
@@ -349,10 +358,10 @@ function gfHeader($aHeader) {
   $debugMode = DEBUG_MODE;
   $isErrorPage = in_array($aHeader, [404, 501]);
 
-  if (array_key_exists('gaRuntime', $GLOBALS)) {
-    if (array_key_exists('debugMode', $GLOBALS['gaRuntime'])) {
-      $debugMode = $GLOBALS['gaRuntime']['debugMode'];
-    }
+  global $gaRuntime;
+
+  if ($gaRuntime && $GLOBALS['gaRuntime']['debugMode']) {
+    $debugMode = $GLOBALS['gaRuntime']['debugMode'];
   }
 
   if (!array_key_exists($aHeader, HTTP_HEADERS)) {
@@ -709,5 +718,120 @@ function gfBasicAuthPrompt() {
   gfError('You need to enter a valid username and password.');
 }
 
+/**********************************************************************************************************************
+* Hash a password
+***********************************************************************************************************************/
+function gfPasswordHash($aPassword, $aCrypt = PASSWORD_BCRYPT, $aSalt = null) {
+  $ePrefix = __FUNCTION__ . DASH_SEPARATOR;
+
+  // We can "hash" a cleartext password by prefixing it with the fake algo prefix $clear$
+  if ($aCrypt == PASSWORD_CLEARTEXT) {
+    if (str_contains($aPassword, DOLLAR)) {
+      // Since the dollar sign is used as an identifier and/or separator for hashes we can't use passwords
+      // that contain said dollar sign.
+      gfError($ePrefix . 'Cannot "hash" this Clear Text password because it contains a dollar sign.');
+    }
+
+    return DOLLAR . PASSWORD_CLEARTEXT . DOLLAR . $aPassword;
+  }
+
+  // We want to be able to generate Apache APR1-MD5 hashes for use in .htpasswd situations.
+  if ($aCrypt == PASSWORD_HTACCESS) {
+    $salt = $aSalt;
+
+    if (!$salt) {
+      $salt = EMPTY_STRING;
+
+      for ($i=0; $i<8; $i++) {
+        $offset = hexdec(bin2hex(openssl_random_pseudo_bytes(1))) % 64;
+        $salt .= APRMD5_ALPHABET[$offset];
+      }
+    }
+
+    $salt = substr($salt, 0, 8);
+    $max = strlen($aPassword);
+    $context = $aPassword . DOLLAR . PASSWORD_HTACCESS . DOLLAR .$salt;
+    $binary = pack('H32', md5($aPassword . $salt . $aPassword));
+
+    for ($i=$max; $i>0; $i-=16) {
+      $context .= substr($binary, 0, min(16, $i));
+    }
+
+    for ($i=$max; $i>0; $i>>=1) {
+      $context .= ($i & 1) ? chr(0) : $aPassword[0];
+    }
+
+    $binary = pack('H32', md5($context));
+
+    for ($i=0; $i<1000; $i++) {
+      $new = ($i & 1) ? $aPassword : $binary;
+
+      if ($i % 3) {
+        $new .= $salt;
+      }
+
+      if ($i % 7) {
+        $new .= $aPassword;
+      }
+
+      $new .= ($i & 1) ? $binary : $aPassword;
+      $binary = pack('H32', md5($new));
+    }
+
+    $hash = EMPTY_STRING;
+
+    for ($i = 0; $i < 5; $i++) {
+      $k = $i+6;
+      $j = $i+12;
+      if($j == 16) $j = 5;
+      $hash = $binary[$i] . $binary[$k] . $binary[$j] . $hash;
+    }
+
+    $hash = chr(0) . chr(0) . $binary[11] . $hash;
+    $hash = strtr(strrev(substr(base64_encode($hash), 2)), BASE64_ALPHABET, APRMD5_ALPHABET);
+
+    return DOLLAR . PASSWORD_HTACCESS . DOLLAR . $salt . DOLLAR . $hash;
+  }
+
+  // Else, our standard (and secure) default is PASSWORD_BCRYPT hashing.
+  // We do not allow custom salts for anything using password_hash as PHP generates secure salts.
+  // PHP Generated passwords are also self-verifiable via password_verify.
+  return password_hash($aPassword, $aCrypt);
+}
+
+/**********************************************************************************************************************
+* Check a password
+***********************************************************************************************************************/
+function gfPasswordVerify($aPassword, $aHash) {
+  $ePrefix = __FUNCTION__ . DASH_SEPARATOR;
+
+  // We can accept a pseudo-hash for clear text passwords in the format of $clear$clear-text-password
+  if (str_starts_with($aHash, DOLLAR . PASSWORD_CLEARTEXT)) {
+    $password = gfExplodeString(DOLLAR, $aHash)[1] ?? null;
+
+    if($password == null || count($password) > 2) {
+      gfError($ePrefix . 'Unable to "verify" this Clear Text "hashed" password.');
+    }
+
+    return $aPassword === $password;
+  }
+
+  // We can also accept an Apache APR1-MD5 password that is commonly used in .htpasswd
+  if (str_starts_with($aHash, DOLLAR . PASSWORD_HTACCESS)) {
+    $salt = gfExplodeString(DOLLAR, $aHash)[1] ?? null;
+
+    if(!$salt) {
+      gfError($ePrefix . 'Unable to verify this Apache APR1-MD5 hashed password.');
+    }
+
+    return gfPasswdHash($aPassword, PASSWORD_HTACCESS, $salt) === $aHash;
+  }
+
+  // For everything else send to the native password_verify function.
+  // It is almost certain to be a BCRYPT2 hash but hashed passwords generated BY PHP are self-verifiable.
+  return password_verify($aPassword, $aHash);
+}
+
 // ====================================================================================================================
+
 ?>
