@@ -200,7 +200,7 @@ function gfError($aValue, $aPHPError = false, $aExternalOutput = null) {
     'output'  => 'Output'
   );
 
-  $externalOutput = !$aExternalOutput ?? function_exists('gfGenContent');
+  $externalOutput = $aExternalOutput ?? function_exists('gfGenContent');
   $isCLI = (php_sapi_name() == "cli");
   $isOutput = false;
 
@@ -294,12 +294,10 @@ function gfSuperVar($aVarType, $aVarValue, $aFalsy = null) {
 
   // General variable absolute null check unless falsy is allowed
   if ($varType == "_CHECK" || $varType == "_VAR" || $varType == "_DIRECT"){
-    $rv = $aVarValue ?? null;
+    $rv = $aVarValue;
 
-    if ($rv && !$aFalsy) {
-      if (empty($rv) || $rv === 'none' || $rv === EMPTY_STRING) {
-        return null;
-      }
+    if (!$aFalsy && (empty($rv) || $rv === 'none' || $rv === 0)) {
+      return null;
     }
 
     return $rv;
@@ -360,8 +358,8 @@ function gfHeader($aHeader) {
 
   global $gaRuntime;
 
-  if ($gaRuntime && $GLOBALS['gaRuntime']['debugMode']) {
-    $debugMode = $GLOBALS['gaRuntime']['debugMode'];
+  if (is_array($gaRuntime) && $gaRuntime['debugMode']) {
+    $debugMode = $gaRuntime['debugMode'];
   }
 
   if (!array_key_exists($aHeader, HTTP_HEADERS)) {
@@ -499,7 +497,7 @@ function gfGetDomain($aHost, $aReturnSub = null) {
 **********************************************************************************************************************/
 function gfImportModules(...$aModules) {
   if (!defined('MODULES')) {
-    funcError('MODULES is not defined');
+    gfError('MODULES is not defined');
   }
 
   foreach ($aModules as $_value) {

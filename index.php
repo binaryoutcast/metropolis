@@ -193,6 +193,7 @@ $gaRuntime = array(
   'phpRequestURI'     => gfSuperVar('server', 'REQUEST_URI'),
   'remoteAddr'        => gfSuperVar('server', 'HTTP_X_FORWARDED_FOR') ?? gfSuperVar('server', 'REMOTE_ADDR'),
   'userAgent'         => gfSuperVar('server', 'HTTP_USER_AGENT'),
+  'debugMode'         => null,
   'qComponent'        => gfSuperVar('get', 'component'),
   'qPath'             => gfSuperVar('get', 'path'),
 );
