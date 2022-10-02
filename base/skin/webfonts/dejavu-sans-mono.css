@@ -1,0 +1,24 @@
+@font-face {
+    font-family: 'DejaVu Sans Mono';
+    font-style: normal;
+    font-weight: 400;
+    src: local('DejaVu Sans Mono'), url('https://fonts.cdnfonts.com/s/108/DejaVuSansMono.woff') format('woff');
+}
+@font-face {
+    font-family: 'DejaVu Sans Mono';
+    font-style: italic;
+    font-weight: 400;
+    src: local('DejaVu Sans Mono'), url('https://fonts.cdnfonts.com/s/108/DejaVuSansMono-Oblique.woff') format('woff');
+}
+@font-face {
+    font-family: 'DejaVu Sans Mono';
+    font-style: normal;
+    font-weight: 700;
+    src: local('DejaVu Sans Mono'), url('https://fonts.cdnfonts.com/s/108/DejaVuSansMono-Bold.woff') format('woff');
+}
+@font-face {
+    font-family: 'DejaVu Sans Mono';
+    font-style: italic;
+    font-weight: 700;
+    src: local('DejaVu Sans Mono'), url('https://fonts.cdnfonts.com/s/108/DejaVuSansMono-BoldOblique.woff') format('woff');
+}

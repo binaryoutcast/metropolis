@@ -19,7 +19,7 @@ _tools/
 datastore/
 datastore
 base/tests/*
+/datastore/.config/*
 
 # Ignore misc files that need not be in the repo
 /robots.txt
-
