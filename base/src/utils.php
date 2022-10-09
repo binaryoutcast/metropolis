@@ -10,9 +10,29 @@
 namespace {
 // == | Setup | =======================================================================================================
 
-// ROOT_PATH is defined as the absolute path (without a trailing slash) of the document root or the scriptdir if cli.
-// It does NOT have a trailing slash
-define('ROOT_PATH', empty($_SERVER['DOCUMENT_ROOT']) ? __DIR__ : $_SERVER['DOCUMENT_ROOT']);
+// Do not allow this to be included more than once...
+if (defined('BINOC_UTILS')) {
+  die('BinOC Metropolis Utilities: You may not include this file more than once.');
+}
+
+// Define that this is a thing which can double as a version check.
+define('BINOC_UTILS', '2.0.0a1');
+
+// --------------------------------------------------------------------------------------------------------------------
+
+if (!defined('kAppVendor')) {
+  define('kAppVendor', 'Binary Outcast');
+}
+
+if (!defined('kAppName')) {
+  define('kAppName', 'Metropolis-based Software');
+}
+
+if (!defined('kAppVersion')) {
+  define('kAppVersion', BINOC_UTILS);
+}
+
+// --------------------------------------------------------------------------------------------------------------------
 
 // We like CLI
 define('SAPI_IS_CLI', php_sapi_name() == "cli");
@@ -24,26 +44,10 @@ ini_set('display_errors', true);
 ini_set('display_startup_errors', true);
 const E_EXCEPTION = 65536;
 
-// Debug flag (CLI always triggers debug mode)
-define('DEBUG_MODE', $_GET['debug'] ?? SAPI_IS_CLI);
-define('kDebugMode', $_GET['debug'] ?? SAPI_IS_CLI);
-
 // --------------------------------------------------------------------------------------------------------------------
 
-// Check if the basic defines have been defined in the including script
-foreach (['SOFTWARE_VENDOR', 'SOFTWARE_NAME', 'SOFTWARE_VERSION'] as $_value) {
-  if (!defined($_value)) {
-    die('BinOC Metropolis Utilities: ' . $_value . ' must be defined before including this file.');
-  }
-}
-
-// Do not allow this to be included more than once...
-if (defined('BINOC_UTILS')) {
-  die('BinOC Metropolis Utilities: You may not include this file more than once.');
-}
-
-// Define that this is a thing which can double as a version check.
-define('BINOC_UTILS', '1.0.0a1');
+// Debug flag (CLI always triggers debug mode)
+define('kDebugMode', $_GET['debug'] ?? SAPI_IS_CLI);
 
 // ====================================================================================================================
 
@@ -591,7 +595,7 @@ class gRegistryUtils {
         'component'   => self::getGlobalVar('get', 'component', 'site'),
         'path'        => $path,
         'depth'       => count($path ?? EMPTY_ARRAY),
-        'debug'       => DEBUG_MODE,
+        'debug'       => kDebugMode,
       ),
       'network' => array(
         'scheme'      => self::getGlobalVar('server', 'SCHEME') ?? (self::getGlobalVar('server', 'HTTPS') ? 'https' : 'http'),
@@ -612,7 +616,7 @@ class gRegistryUtils {
   /********************************************************************************************************************
   * Get the registry property and return it
   ********************************************************************************************************************/
-  public static component(?string $aCompareComponent = null) {
+  public static function component(?string $aCompareComponent = null) {
     $rv = (self::$init) ? self::get('app.component') : self::getGlobalVar('get', 'component', 'site');
 
     if ($aCompareComp) {
@@ -620,6 +624,13 @@ class gRegistryUtils {
     }
 
     return $rv;
+  }
+
+  /********************************************************************************************************************
+  * Get the registry property and return it
+  ********************************************************************************************************************/
+  public static function debug() {
+    return (self::$init) ? self::get('app.debug') : kDebugMode;
   }
 
   /********************************************************************************************************************
@@ -756,7 +767,7 @@ class gRegistryUtils {
             }
 
             $attr = str_replace('--', EMPTY_STRING, $arg[0]);
-            $val = self::__FUNCTION__('check', str_replace('"', EMPTY_STRING, $arg[1]));
+            $val = self::getGlobalVar('check', str_replace('"', EMPTY_STRING, $arg[1]));
 
             if (!$attr && !$val) {
               continue;
@@ -814,7 +825,7 @@ class gRegistryUtils {
 
 // == | Static Output Class | =========================================================================================
 
-class output {
+class gConsole {
   const HTTP_HEADERS = array(
     404                       => 'HTTP/1.1 404 Not Found',
     501                       => 'HTTP/1.1 501 Not Implemented',
@@ -834,12 +845,12 @@ class output {
   * Sends HTTP Headers to client using a short name
   *
   * @dep HTTP_HEADERS
-  * @dep DEBUG_MODE
+  * @dep kDebugMode
   * @dep gError()
   * @param $aHeader    Short name of header
   **********************************************************************************************************************/
   public static function header($aHeader, $aReplace = true) { 
-    $debugMode = gGetProperty('runtime', 'debugMode', DEBUG_MODE);
+    $debugMode = gRegistryUtils::debug();
     $isErrorPage = in_array($aHeader, [404, 501]);
 
     if (!array_key_exists($aHeader, self::HTTP_HEADERS)) {
@@ -904,7 +915,7 @@ class output {
     // Send the header if not cli
     if (SAPI_IS_CLI) {
       if (!CLI_NO_LOGO) {
-        $software = $title . DASH_SEPARATOR . SOFTWARE_VENDOR . SPACE . SOFTWARE_NAME . SPACE . SOFTWARE_VERSION;
+        $software = $title . DASH_SEPARATOR . kAppVendor . SPACE . kAppName . SPACE . kAppVersion;
         $titleLength = 120 - 8 - strlen($software);
         $titleLength = ($titleLength > 0) ? $titleLength : 2;
         $title = NEW_LINE . '==' . SPACE . PIPE . SPACE . $software . SPACE . PIPE . SPACE . str_repeat('=', $titleLength);
@@ -937,7 +948,7 @@ function gUnsetArrVal(...$args) { return Illuminate\Support\Arr::forget(...$args
 // --------------------------------------------------------------------------------------------------------------------
 
 gRegistryUtils::init();
-gErrorUtils::init();
+//gErrorUtils::init();
 
 // --------------------------------------------------------------------------------------------------------------------
 
@@ -945,6 +956,12 @@ function gGetRegKey(...$args) { return gRegistryUtils::get(...$args); }
 function gSetRegKey(...$args) { return gRegistryUtils::set(...$args); }
 function gSuperGlobal(...$args) { return gRegistryUtils::getGlobalVar(...$args); }
 function gMaybeNull(...$args) { return gRegistryUtils::getGlobalVar('check', ...$args); }
+
+// --------------------------------------------------------------------------------------------------------------------
+
+function gOutput(...$args) { return gConsole::display(...$args); }
+function gHeader(...$args) { return gConsole::header(...$args); }
+function gRedirect(...$args) { return gConsole::redirect(...$args); }
 
 // ====================================================================================================================
 
