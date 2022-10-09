@@ -8,7 +8,7 @@ define('ROOT_PATH', empty($_SERVER['DOCUMENT_ROOT']) ? __DIR__ : $_SERVER['DOCUM
 // Load fundamental utils
 require_once('./base/src/utils.php');
 
-gOutput('hello', 'html');
+gOutput(gPath(ROOT_PATH, 'base', 'src', 'app.php'));
 
 // ====================================================================================================================
 

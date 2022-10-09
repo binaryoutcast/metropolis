@@ -999,17 +999,17 @@ function gRegisterIncludes($aConst, $aIncludes) {
   foreach($aIncludes as $_key => $_value) { 
     switch ($aConst) {
       case 'COMPONENTS':
-        $includes[$_value] = gBuildPath(ROOT_PATH, 'components', $_value, 'src', $_value . FILE_EXTS['php']);
+        $includes[$_value] = gPath(ROOT_PATH, 'components', $_value, 'src', $_value . FILE_EXTS['php']);
         break;
       case 'MODULES':
-        $includes[$_value] = gBuildPath(ROOT_PATH, 'modules', $_value . FILE_EXTS['php']);
+        $includes[$_value] = gPath(ROOT_PATH, 'modules', $_value . FILE_EXTS['php']);
         break;
       case 'LIBRARIES':
         if (str_contains($_value, DOT . DOT)) {
           return;
         }
 
-        $includes[$_key] = gBuildPath(ROOT_PATH, 'third_party', $_value);
+        $includes[$_key] = gPath(ROOT_PATH, 'third_party', $_value);
         break;
       default:
         gfError('Unknown include type');
@@ -1070,34 +1070,39 @@ function gSplitPath(string $aPath) {
 }
 
 /**********************************************************************************************************************
-* Builds a path from a list of arguments
-*
-* @dep ROOT_PATH
-* @dep SLASH
-* @dep DOT
-* @param        ...$aPathParts  Path Parts
-* @returns                      Path string
+* Builds and Normalizes Paths
 ***********************************************************************************************************************/
-function gBuildPath(...$aPathParts) {
-  $rv = implode(SLASH, $aPathParts);
+function gPath(...$aParts) {
+  $parts = EMPTY_ARRAY;
+  $path = strtr(implode(SLASH, $aParts), '\\', SLASH);
+  $prefix = EMPTY_STRING;
+  $absolute = false;
 
-  $filesystem = str_starts_with($rv, ROOT_PATH);
-  
-  // Add a pre-pending slash if this is not a file system path
-  if (!$filesystem) {
-    $rv = SLASH . $rv;
+  // extract a prefix being a protocol://, protocol:, protocol://drive: or simply drive:
+  if (preg_match('{^( [0-9a-z]{2,}+: (?: // (?: [a-z]: )? )? | [a-z]: )}ix', $path, $match)) {
+    $prefix = $match[1];
+    $path = substr($path, strlen($prefix));
   }
 
-  // Add a trailing slash if the last part does not contain a dot
-  // If it is a file system path then we will also add a trailing slash if the last part starts with a dot
-  if (!str_contains(basename($rv), DOT) || ($filesystem && str_starts_with(basename($rv), DOT))) {
-    $rv .= SLASH;
+  if (substr($path, 0, 1) === SLASH) {
+    $absolute = true;
+    $path = substr($path, 1);
   }
 
-  // Remove any cases of multiple slashes
-  $rv = preg_replace('#/+#', '/', $rv);
+  $up = false;
 
-  return $rv;
+  foreach (explode(SLASH, $path) as $chunk) {
+    if (DOTDOT === $chunk && ($absolute || $up)) {
+      array_pop($parts);
+      $up = !(empty($parts) || DOTDOT === end($parts));
+    }
+    elseif (DOT !== $chunk && EMPTY_STRING !== $chunk) {
+      $parts[] = $chunk;
+      $up = DOTDOT !== $chunk;
+    }
+  }
+
+  return $prefix . ($absolute ? SLASH : EMPTY_STRING) . implode(SLASH, $parts);
 }
 
 /**********************************************************************************************************************
