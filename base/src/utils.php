@@ -204,17 +204,17 @@ class gRegistryUtils {
       ),
       'console' => array(
         'output' => array(
-          'skin' => 'default',
           'contentType' => ini_get('default_mimetype'),
+          'httpHeaders' => EMPTY_ARRAY,
         ),
         'content' => array(
-          'skin'        => kDefaultSkinName,
-          'skinPath'    => kDefaultSkinPath,
-          'template'    => null,
-          'stylesheet'  => null,
-          'mainmenu'    => kDefaultMenu,
-          'commandbar'  => kDefaultMenu,
-          'statustext'  => 'Done',
+          'skin'          => kDefaultSkinName,
+          'skinPath'      => kDefaultSkinPath,
+          'template'      => null,
+          'stylesheet'    => null,
+          'mainmenu'      => kDefaultMenu,
+          'commandbar'    => kDefaultMenu,
+          'statustext'    => 'Done',
         ),
       ),
     );
@@ -518,7 +518,7 @@ class gConsoleUtils {
   /******************************************************************************************************************
   * Simply prints output and sends header if not cli and exits
   ******************************************************************************************************************/
-  public static function output($aContent, $aHeader = null) {
+  public static function output(mixed $aContent, $aHeader = null) {
     $content = null;
 
     if (is_array($aContent)) {
@@ -612,7 +612,7 @@ class gConsoleUtils {
       $siteName = $sectionName . DASH_SEPARATOR . $siteName;
     }
 
-    $isTestCase = (!$metadata('title') && gRegistry('special.testCase') && gRegistry('app.component') == kSpecialComponent);
+    $isTestCase = (!$metadata('title') && gRegistry('special.testCase') && gRegistryUtils::Component(kSpecialComponent));
 
     $substs = array(
       '{$SITE_STYLESHEET}'  => $stylesheet ?? EMPTY_STRING,

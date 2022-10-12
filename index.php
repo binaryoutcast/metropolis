@@ -18,7 +18,7 @@ const kAppName = 'Metropolis';
 
 // These are flags that will either default to or disable the special component.
 // They are optional and do NOT need to be defined if not set to true.
-const kAppIsSpecialComponent = false;
+const kAppIsSpecialComponent = true;
 /* const kDisableSpecialComponent = true; */
 
 // Load fundamental utils
