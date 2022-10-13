@@ -9,9 +9,11 @@
 
 namespace { // == | Setup and Global Constants | ======================================================================
 
+const kUtilsPhpMinVersion = '8.1';
+
 // Check that we can run on this version of PHP
-if (PHP_MAJOR_VERSION . PHP_MINOR_VERSION < '81') {
-  die('BinOC Metropolis Utilities: PHP 8.1 or newer is required.');
+if (gVersionCompare(PHP_VERSION, kUtilsPhpMinVersion) < 0) {
+  die('BinOC Metropolis Utilities: PHP ' . kUtilsPhpMinVersion . ' or newer is required.');
 }
 
 // --------------------------------------------------------------------------------------------------------------------
@@ -440,8 +442,81 @@ class gErrorUtils {
     E_EXCEPTION               => 'PHP Exception',
   );
 
+  /******************************************************************************************************************
+  * Static Class Public Init/Deinit
+  ******************************************************************************************************************/
   public static function init() {
-    return;
+    set_error_handler(__CLASS__ . SCOPE_OPERATOR . "phpErrorHandler");
+    set_exception_handler(__CLASS__ . SCOPE_OPERATOR . "phpExceptionHandler");
+  }
+
+  public static function uninit() { restore_error_handler(); restore_exception_handler(); }
+
+  /******************************************************************************************************************
+  * Output details about a failure condition
+  ******************************************************************************************************************/
+  public static function report(array $aMetadata) {
+    $traceline = fn($eFile, $eLine) => str_replace(ROOT_PATH, EMPTY_STRING, $eFile) . COLON . $eLine;
+    $functions = ['phpErrorHandler', 'phpExceptionHandler', 'trigger_error'];
+    $trace = ($aMetadata['file'] && $aMetadata['line']) ? [$traceline($aMetadata['file'], $aMetadata['line'])] : EMPTY_ARRAY;
+
+    foreach ($aMetadata['trace'] as $_key => $_value) {
+      if (in_array($_value['function'], $functions)) {
+        continue;
+      }
+
+      $trace[] = $traceline($_value['file'], $_value['line']);
+    }
+
+    $title = self::kPhpErrorCodes[$aMetadata['code']] ?? self::kPhpErrorCodes[E_ALL];
+    $content = $aMetadata['message'];
+
+    if (!SAPI_IS_CLI) {
+      $content = is_string($content) ?
+                 '<h2 style="display: block; border-bottom: 1px solid #d6e5f5; font-weight: bold;">Issue Details</h2>' .
+                 '<p>' . $content . '</p>':
+                 EMPTY_STRING;
+
+      $content .= '<h3>Traceback:</h3><ul>';
+
+      foreach ($trace as $_value) {
+        $content .= '<li>' . $_value . '</li>';
+      }
+
+      $commandBar = ['onclick="history.back()"' => 'Go Back'];
+
+      if (gRegistryUtils::Component(kSpecialComponent) || !gRegistry('constant.components.site')) {
+        gRegistrySet('console.content.commandbar', array_merge($commandBar, ['/special/' => kSpecialComponentName]));
+      }
+      else {
+        gRegistrySet('console.content.commandbar', array_merge($commandBar, kDefaultMenu));
+      }
+
+      gRegistrySet('console.content.sectionName', EMPTY_STRING);
+      gContent($content, ['title' => $title, 'statustext' => 'Please contact a system administrator.']);
+    }
+
+    gOutput(['title'=> $title, 'content' => ['errorMessage' => $content, 'traceback' => $trace]]);
+  }
+
+  /******************************************************************************************************************
+  * PHP Handlers
+  ******************************************************************************************************************/
+  public static function phpErrorHandler($eCode, $eMessage, $eFile, $eLine) {
+    if (!(error_reporting() & $eCode)) {
+      // Don't do jack shit because the developers of PHP think users shouldn't be trusted.
+      return;
+    }
+
+    self::report(['code' => $eCode, 'message' => $eMessage,
+                  'file' => $eFile, 'line' => $eLine,
+                  'trace' => debug_backtrace(2)]);
+  }
+
+  public static function phpExceptionHandler($ex) {
+    self::report(['code' => E_EXCEPTION, 'message' => $ex->getMessage(),
+                  'file' => $ex->getFile(), 'line' => $ex->getLine(),
+                  'trace' => $ex->getTrace()]);
   }
 }
 
@@ -834,7 +909,7 @@ class gConsoleUtils {
 // == | Static Class Init and Global Wrappers | =======================================================================
 
 gRegistryUtils::init();
-//gErrorUtils::init();
+gErrorUtils::init();
 
 // --------------------------------------------------------------------------------------------------------------------
 

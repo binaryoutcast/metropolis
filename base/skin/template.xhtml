@@ -1,0 +1,28 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <title>{$PAGE_TITLE} - {$SITE_NAME}</title>
+    <link rel="stylesheet" href="{$SKIN_PATH}/webfonts/red-hat-font.css" />
+    <style id="cssMain" type="text/css">
+      {$SITE_STYLESHEET}
+    </style>
+  </head>
+  <body>
+    <div id="binoc-window" class="binoc-dwm-surface">
+      <div id="binoc-caption">
+        <p>{$PAGE_TITLE}</p>
+      </div>
+      <div id="binoc-client">
+        <div id="binoc-commandbar"><ul>{$SITE_MENU}</ul></div>
+        <div id="binoc-body"><div id="binoc-content" class="fadeIn">{$PAGE_CONTENT}</div></div>
+      </div>
+      <div id="binoc-statusbar">
+        <span id="binoc-statustext" class="alignleft">{$PAGE_STATUS}</span>
+        <span class="alignright" style="border-left: 1px solid #d7d7d7; padding-left: 2px; color: #a4a4a4"><em>{$SOFTWARE_VENDOR} {$SOFTWARE_NAME} {$SOFTWARE_VERSION}</em></span>
+      </div>
+    </div>
+  </body>
+</html>
